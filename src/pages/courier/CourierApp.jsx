@@ -295,6 +295,17 @@ function CourierDashboard({ courier }) {
   )
 }
 
+// Posición actual del dispositivo al cerrar la entrega (se envía al servidor, no se muestra)
+const getGps = () =>
+  new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve({ p_gps_status: 'no_disponible' })
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ p_lat: p.coords.latitude, p_lng: p.coords.longitude, p_accuracy: p.coords.accuracy }),
+      (e) => resolve({ p_gps_status: e.code === 1 ? 'sin_permiso' : 'no_disponible' }),
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 },
+    )
+  })
+
 function DeliveryCard({ o, onChange }) {
   const [code, setCode] = useState('')
   const [err, setErr] = useState('')
@@ -372,8 +383,16 @@ function DeliveryCard({ o, onChange }) {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
           />
-          <button className="btn ok block" disabled={busy || code.length !== 4} onClick={() => call('complete_delivery', { p_order: o.id, p_code: code })}>
-            ✔ Validar código y finalizar
+          <button
+            className="btn ok block"
+            disabled={busy || code.length !== 4}
+            onClick={async () => {
+              setBusy(true)
+              const gps = await getGps()
+              call('complete_delivery', { p_order: o.id, p_code: code, ...gps })
+            }}
+          >
+            {busy ? 'Finalizando…' : '✔ Validar código y finalizar'}
           </button>
         </div>
       )}

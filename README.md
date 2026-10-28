@@ -28,7 +28,7 @@ cp .env.example .env
 npm run dev
 ```
 
-La base de datos se crea ejecutando `supabase/schema.sql` en el SQL Editor de Supabase. El archivo es idempotente.
+La base de datos se crea ejecutando `supabase/schema.sql` y luego, en orden, los archivos de `supabase/migrations/` en el SQL Editor de Supabase.
 
 ### Login con Google
 

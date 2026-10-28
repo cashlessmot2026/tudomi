@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Chat } from '../../components/Chat'
+import { DeliveryLocation } from '../../components/DeliveryLocation'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { fmtDate, mapsUrl, money, waUrl } from '../../lib/format'
@@ -14,7 +15,12 @@ export default function BusinessOrders({ business }) {
   const [filter, setFilter] = useState('activos')
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('orders').select('*').eq('business_id', business.id).order('created_at', { ascending: false }).limit(150)
+    const { data } = await supabase
+      .from('orders')
+      .select('*, delivery_locations(*)')
+      .eq('business_id', business.id)
+      .order('created_at', { ascending: false })
+      .limit(150)
     setList(data || [])
   }, [business.id])
 
@@ -147,6 +153,7 @@ function OrderCard({ o, onChange }) {
         </div>
       )}
       {o.reject_reason && <div className="small error">Motivo: {o.reject_reason}</div>}
+      {o.status === 'entregado' && <DeliveryLocation loc={[].concat(o.delivery_locations ?? [])[0]} />}
 
       <ErrorText>{err}</ErrorText>
 

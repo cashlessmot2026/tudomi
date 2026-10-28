@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Empty, ErrorText, Field, Img, Spinner, StatusBadge, Tabs } from '../../components/ui'
+import { DeliveryLocation } from '../../components/DeliveryLocation'
+import { OrderTicket } from '../../components/OrderTicket'
+import { Empty, ErrorText, Field, Img, Modal, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { catLabel, fmtDate, money } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
@@ -257,44 +259,127 @@ function Businesses({ pass }) {
 
 function AllOrders({ pass }) {
   const [list, setList] = useState(null)
+  const [open, setOpen] = useState(null)
   useEffect(() => {
     supabase.rpc('admin_list_orders', { p_pass: pass }).then(({ data }) => setList(data || []))
   }, [pass])
   if (list === null) return <Spinner />
   if (!list.length) return <Empty icon="📦" text="Aún no hay pedidos" />
   return (
-    <div className="table-wrap card">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Fecha</th>
-            <th>Negocio</th>
-            <th>Cliente</th>
-            <th>Domi</th>
-            <th>Pago</th>
-            <th>Total</th>
-            <th>Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((o) => (
-            <tr key={o.id}>
-              <td>{o.number}</td>
-              <td>{fmtDate(o.created_at)}</td>
-              <td>{o.business_name}</td>
-              <td>{o.customer_name}</td>
-              <td>{o.courier_name || '—'}</td>
-              <td>{o.payment_method}</td>
-              <td>{money(o.total)}</td>
-              <td>
-                <StatusBadge status={o.status} />
-              </td>
+    <>
+      <p className="muted small">Toca un pedido para ver el detalle completo y el ticket.</p>
+      <div className="table-wrap card">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Fecha</th>
+              <th>Negocio</th>
+              <th>Cliente</th>
+              <th>Domi</th>
+              <th>Pago</th>
+              <th>Total</th>
+              <th>Estado</th>
+              <th>GPS</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {list.map((o) => (
+              <tr key={o.id} className="clickable" onClick={() => setOpen(o.id)}>
+                <td>{o.number}</td>
+                <td>{fmtDate(o.created_at)}</td>
+                <td>{o.business_name}</td>
+                <td>{o.customer_name}</td>
+                <td>{o.courier_name || '—'}</td>
+                <td>{o.payment_method}</td>
+                <td>{money(o.total)}</td>
+                <td>
+                  <StatusBadge status={o.status} />
+                </td>
+                <td>{o.has_gps ? '📍' : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {open && <OrderDetailModal pass={pass} id={open} onClose={() => setOpen(null)} />}
+    </>
+  )
+}
+
+function OrderDetailModal({ pass, id, onClose }) {
+  const [d, setD] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    supabase.rpc('admin_get_order', { p_pass: pass, p_id: id }).then(({ data, error }) => {
+      if (error) setErr(error.message)
+      else setD(data)
+    })
+  }, [pass, id])
+
+  const o = d?.order
+  return (
+    <Modal title={o ? `Pedido #${o.number}` : 'Pedido'} onClose={onClose} wide>
+      <ErrorText>{err}</ErrorText>
+      {!d && !err && <Spinner />}
+      {o && (
+        <>
+          <div className="detail-grid small">
+            <div>
+              <b>Estado</b>
+              <StatusBadge status={o.status} />
+            </div>
+            <div>
+              <b>Creado</b>
+              {fmtDate(o.created_at)}
+            </div>
+            {o.delivered_at && (
+              <div>
+                <b>Entregado</b>
+                {fmtDate(o.delivered_at)}
+              </div>
+            )}
+            <div>
+              <b>Negocio</b>
+              {d.business?.name}
+              <span className="muted">{d.business?.phone}</span>
+            </div>
+            <div>
+              <b>Cliente</b>
+              {o.customer_name}
+              <span className="muted">{o.phone}</span>
+            </div>
+            <div>
+              <b>Domiciliario</b>
+              {o.courier_name || '—'}
+              <span className="muted">{o.courier_phone}</span>
+            </div>
+            <div>
+              <b>Pago</b>
+              {o.payment_method === 'efectivo' ? '💵 Efectivo' : `🏦 Transferencia · ${o.payment_status}`}
+              {o.payment_proof_url && (
+                <a href={o.payment_proof_url} target="_blank" rel="noreferrer">
+                  Ver comprobante
+                </a>
+              )}
+            </div>
+            {o.reject_reason && (
+              <div>
+                <b>Motivo de rechazo</b>
+                <span className="error">{o.reject_reason}</span>
+              </div>
+            )}
+          </div>
+
+          {o.status === 'entregado' && <DeliveryLocation loc={d.location} />}
+
+          <OrderTicket order={o} businessName={d.business?.name} />
+          <button className="btn ghost block" onClick={() => window.print()}>
+            🖨 Imprimir ticket
+          </button>
+        </>
+      )}
+    </Modal>
   )
 }
 
