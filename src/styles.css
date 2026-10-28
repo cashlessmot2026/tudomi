@@ -102,6 +102,8 @@ img { max-width: 100%; }
 .btn.ghost::after { opacity: 0; }
 .btn.ghost:hover { background: color-mix(in srgb, var(--brand) 18%, transparent); }
 .btn.ok { --brand: #22c55e; --brand2: #10b981; }
+.btn.ok, .app-domi .btn:not(.ghost):not(.danger):not(.google) { color: #0a0a0f; }
+.app-domi .bottom-nav a.active { color: #0a0a0f; }
 .btn.danger { --brand: #ef4444; --brand2: #f97316; }
 .btn.google { background: #fff; color: #222; --brand: #ffffff; --brand2: #dbeafe; }
 .pulse { animation: pulse 2.4s ease-in-out infinite; }
