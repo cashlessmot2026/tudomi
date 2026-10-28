@@ -88,9 +88,9 @@ function BusinessInner() {
           <BusinessForm initial={b} onSaved={load} />
           <div className="card pad stack mt">
             <PushButton app="negocio" />
-            <a className="btn ghost sm" href={`/tienda/${b.id}`} target="_blank" rel="noreferrer">
+            <Link className="btn ghost sm" to={`/tienda/${b.id}`} target="_blank" rel="noreferrer">
               👀 Ver mi tienda como cliente
-            </a>
+            </Link>
             <button className="btn danger sm" onClick={signOut}>
               Cerrar sesión
             </button>

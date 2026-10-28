@@ -15,13 +15,13 @@
     <script>
       // Cada interfaz (clientes / negocios / domiciliarios) se instala como una app independiente
       (function () {
-        var p = location.pathname, app = 'cliente', name = 'TuDomi'
-        if (p.indexOf('/negocio') === 0) { app = 'negocio'; name = 'TuDomi Negocios' }
-        else if (p.indexOf('/domiciliario') === 0) { app = 'domi'; name = 'TuDomi Domis' }
+        var base = '%BASE_URL%', p = location.pathname, app = 'cliente', name = 'TuDomi'
+        if (p.indexOf(base + 'negocio') === 0) { app = 'negocio'; name = 'TuDomi Negocios' }
+        else if (p.indexOf(base + 'domiciliario') === 0) { app = 'domi'; name = 'TuDomi Domis' }
         var add = function (tag, attrs) { var el = document.createElement(tag); for (var k in attrs) el.setAttribute(k, attrs[k]); document.head.appendChild(el) }
-        add('link', { rel: 'manifest', href: '/manifest-' + app + '.webmanifest' })
-        add('link', { rel: 'icon', type: 'image/png', href: '/icons/' + app + '-192.png' })
-        add('link', { rel: 'apple-touch-icon', href: '/icons/' + app + '-180.png' })
+        add('link', { rel: 'manifest', href: base + 'manifest-' + app + '.webmanifest' })
+        add('link', { rel: 'icon', type: 'image/png', href: base + 'icons/' + app + '-192.png' })
+        add('link', { rel: 'apple-touch-icon', href: base + 'icons/' + app + '-180.png' })
         add('meta', { name: 'apple-mobile-web-app-title', content: name })
         document.title = name
       })()

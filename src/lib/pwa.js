@@ -29,7 +29,8 @@ export async function promptInstall() {
 
 export function registerSW() {
   if ('serviceWorker' in navigator && import.meta.env.PROD) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'))
+    const base = import.meta.env.BASE_URL
+    window.addEventListener('load', () => navigator.serviceWorker.register(`${base}sw.js`, { scope: base }))
   }
 }
 
@@ -65,7 +66,7 @@ export async function notifyLocal(title, body, url = '/') {
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted') return
     const reg = await navigator.serviceWorker?.getRegistration()
-    if (reg) reg.showNotification(title, { body, icon: '/icons/cliente-192.png', data: { url } })
+    if (reg) reg.showNotification(title, { body, icon: `${import.meta.env.BASE_URL}icons/cliente-192.png`, data: { url } })
     else new Notification(title, { body })
   } catch {}
 }

@@ -50,9 +50,9 @@ export default function Home() {
         <Spinner />
       ) : shown.length === 0 ? (
         <Empty icon="🏪" text="Aún no hay negocios aquí. ¿Tienes uno?">
-          <a className="btn" href="/negocio">
+          <Link className="btn" to="/negocio">
             Publicar mi negocio
-          </a>
+          </Link>
         </Empty>
       ) : (
         <div className="grid">

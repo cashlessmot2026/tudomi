@@ -15,7 +15,7 @@ registerSW()
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={import.meta.env.BASE_URL}>
         <Routes>
           <Route path="/negocio/*" element={<BusinessApp />} />
           <Route path="/domiciliario/*" element={<CourierApp />} />

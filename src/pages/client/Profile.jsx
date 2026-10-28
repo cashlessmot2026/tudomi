@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ErrorText, Field, InstallButton, PushButton } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 
@@ -47,12 +48,12 @@ export default function Profile() {
       <div className="card pad stack">
         <PushButton app="cliente" />
         <InstallButton />
-        <a className="btn ghost sm" href="/negocio">
+        <Link className="btn ghost sm" to="/negocio">
           🏪 ¿Tienes un negocio? Publica tus productos
-        </a>
-        <a className="btn ghost sm" href="/domiciliario">
+        </Link>
+        <Link className="btn ghost sm" to="/domiciliario">
           🛵 Quiero ser domiciliario
-        </a>
+        </Link>
         <button className="btn danger sm" onClick={signOut}>
           Cerrar sesión
         </button>
