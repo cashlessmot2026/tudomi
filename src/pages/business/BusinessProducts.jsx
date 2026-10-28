@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Empty, ErrorText, Field, Img, Modal, Spinner } from '../../components/ui'
 import { priceLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
+import ImportProducts from './ImportProducts'
 
 const SECTION_HINTS = {
   restaurante: ['Pizzas', 'Hamburguesas', 'Bebidas', 'Postres', 'Combos'],
@@ -13,6 +14,7 @@ export default function BusinessProducts({ business }) {
   const [list, setList] = useState(null)
   const [edit, setEdit] = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('products').select('*').eq('business_id', business.id).order('section').order('name')
@@ -38,9 +40,19 @@ export default function BusinessProducts({ business }) {
 
   return (
     <div>
-      <button className="btn pulse mb" onClick={() => setEdit({})}>
-        ＋ Nuevo producto
-      </button>
+      <div className="actions mb">
+        <button className="btn pulse" onClick={() => setEdit({})}>
+          ＋ Nuevo producto
+        </button>
+        <button className="btn ghost" onClick={() => setImporting(true)}>
+          📊 Subir desde Excel
+        </button>
+      </div>
+      <div className="note-box small">
+        💡 <b>¿Muchos productos?</b> Usa <b>“Subir desde Excel”</b>: descarga la plantilla, llénala (columnas <code>nombre</code>,{' '}
+        <code>precio</code>, <code>descripcion</code>, <code>imagen_url</code>, <code>seccion</code>, <code>tipo_venta</code>, <code>unidad_peso</code>,{' '}
+        <code>perecedero</code>, <code>pizza</code>, <code>disponible</code>) y súbela. Solo <code>nombre</code> y <code>precio</code> son obligatorias.
+      </div>
       {list.length === 0 && <Empty icon="🛍️" text="Agrega tu primer producto" />}
       <div className="grid">
         {list.map((p) => (
@@ -70,6 +82,7 @@ export default function BusinessProducts({ business }) {
           </div>
         ))}
       </div>
+      {importing && <ImportProducts business={business} onClose={() => setImporting(false)} onDone={load} />}
       {edit && (
         <ProductForm
           business={business}
