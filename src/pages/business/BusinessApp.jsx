@@ -28,6 +28,41 @@ export default function BusinessApp() {
   )
 }
 
+// Enlace directo a la tienda para redes sociales: el cliente abre el menú y se registra al pedir
+function ShareStore({ business }) {
+  const [copied, setCopied] = useState(false)
+  const url = `${window.location.origin}${import.meta.env.BASE_URL}tienda/${business.id}`
+  const text = `Haz tu pedido en ${business.name} 🛵`
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      window.prompt('Copia este enlace:', url)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+  const share = () => (navigator.share ? navigator.share({ title: business.name, text, url }).catch(() => {}) : copy())
+  return (
+    <div className="card pad stack">
+      <b>🔗 Tu enlace para redes sociales</b>
+      <p className="muted small">Pégalo en Instagram, Facebook, TikTok o WhatsApp: tus clientes entran directo a tu menú y se registran para pedir.</p>
+      <input className="input" readOnly value={url} onFocus={(e) => e.target.select()} />
+      <div className="row2">
+        <button className="btn sm" onClick={copy}>
+          {copied ? '✔ Enlace copiado' : '📋 Copiar enlace'}
+        </button>
+        <button className="btn ghost sm" onClick={share}>
+          📤 Compartir
+        </button>
+      </div>
+      <a className="btn ghost sm" href={`https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`} target="_blank" rel="noreferrer">
+        💬 Enviar por WhatsApp
+      </a>
+    </div>
+  )
+}
+
 function BusinessInner() {
   const { user, signOut } = useAuth()
   const [b, setB] = useState(undefined)
@@ -73,6 +108,7 @@ function BusinessInner() {
           {b.is_open ? '● Abierto' : '● Cerrado'}
         </button>
       </div>
+      <ShareStore business={b} />
 
       <Tabs
         value={tab}

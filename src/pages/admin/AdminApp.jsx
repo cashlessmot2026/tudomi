@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DeliveryLocation } from '../../components/DeliveryLocation'
 import MapView from '../../components/MapView'
-import { hasCoords, timeAgo } from '../../lib/geo'
+import { hasCoords, normCity, timeAgo } from '../../lib/geo'
 import { OrderTicket } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, Img, Modal, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { catLabel, fmtDate, isPrepaid, money, payLabel } from '../../lib/format'
@@ -248,6 +248,7 @@ function Couriers({ pass, onChange }) {
 
 function Businesses({ pass }) {
   const [list, setList] = useState(null)
+  const [city, setCity] = useState('')
   const load = useCallback(async () => {
     const { data } = await supabase.rpc('admin_list_businesses', { p_pass: pass })
     setList(data || [])
@@ -261,9 +262,24 @@ function Businesses({ pass }) {
   }
   if (list === null) return <Spinner />
   if (!list.length) return <Empty icon="🏪" text="Aún no hay negocios registrados" />
+  const cities = [...new Map(list.filter((b) => b.city).map((b) => [normCity(b.city), b.city])).values()].sort((a, b) => a.localeCompare(b, 'es'))
+  const shown = list.filter((b) => (city === '__none' ? !b.city : !city || normCity(b.city) === normCity(city)))
   return (
+    <>
+      <div className="tab-row">
+        <select className="input" value={city} onChange={(e) => setCity(e.target.value)}>
+          <option value="">Todas las ciudades ({list.length})</option>
+          {cities.map((c) => (
+            <option key={c} value={c}>
+              {c} ({list.filter((b) => normCity(b.city) === normCity(c)).length})
+            </option>
+          ))}
+          <option value="__none">Sin ciudad ({list.filter((b) => !b.city).length})</option>
+        </select>
+      </div>
+      {!shown.length && <Empty icon="🏪" text="No hay negocios en esta ciudad" />}
     <div className="orders-grid">
-      {list.map((b) => (
+      {shown.map((b) => (
         <div key={b.id} className={`card pad ${b.active ? '' : 'off'}`}>
           <div className="row-between">
             <Img src={b.logo_url} alt="" className="biz-logo" fallback="🏪" />
@@ -272,6 +288,7 @@ function Businesses({ pass }) {
               <div className="muted small">
                 {catLabel(b.category)} · {b.phone}
               </div>
+              <div className="small">{b.city ? `🏙️ ${b.city}` : <span className="pill bad">Sin ciudad</span>}</div>
             </div>
           </div>
           <p className="small muted">{b.address}</p>
@@ -281,6 +298,7 @@ function Businesses({ pass }) {
         </div>
       ))}
     </div>
+    </>
   )
 }
 

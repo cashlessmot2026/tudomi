@@ -182,11 +182,14 @@ export function PlatformSettings({ pass }) {
   const [s, setS] = useState(null)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
+  const [extOn, setExtOn] = useState(true)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc('admin_get_settings', { p_pass: pass })
     if (error) setErr(error.message)
     setS(data)
+    const { data: cfg } = await supabase.rpc('payment_config')
+    if (cfg) setExtOn(cfg.external_couriers !== false)
   }, [pass])
   useEffect(() => {
     load()
@@ -196,6 +199,14 @@ export function PlatformSettings({ pass }) {
     setErr('')
     setMsg('')
     const { error } = await supabase.rpc('admin_set_settings', { p_pass: pass, p: patch })
+    if (error) return setErr(error.message)
+    setMsg('Guardado ✔')
+    load()
+  }
+  const setExternal = async (enabled) => {
+    setErr('')
+    setMsg('')
+    const { error } = await supabase.rpc('admin_set_external_couriers', { p_pass: pass, p_enabled: enabled })
     if (error) return setErr(error.message)
     setMsg('Guardado ✔')
     load()
@@ -211,6 +222,21 @@ export function PlatformSettings({ pass }) {
   const w = s.rain_checked
   return (
     <>
+      <div className="card pad narrow">
+        <div className="row-between">
+          <div>
+            <h3>🛵 Domiciliarios externos</h3>
+            <p className="muted small">
+              Encendido: los pedidos se publican para los domiciliarios de la plataforma. Apagado: cada negocio despacha solo con sus domiciliarios propios y no
+              se registran externos nuevos. Los pedidos publicados sin tomar vuelven al negocio.
+            </p>
+          </div>
+          <button className={`btn sm ${extOn ? 'ok' : 'danger'}`} onClick={() => setExternal(!extOn)}>
+            {extOn ? '● Encendido' : '○ Apagado'}
+          </button>
+        </div>
+      </div>
+
       <div className="card pad narrow">
         <h3>💼 Comisión sobre ventas</h3>
         <p className="muted small">

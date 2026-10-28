@@ -9,6 +9,7 @@ import { fmtDate, isOnline, money, needsProof, payLabel, waUrl } from '../../lib
 import { mapsLink } from '../../lib/geo'
 import { alertOrderReceived, alertPaymentReceived } from '../../lib/alerts'
 import { notifyLocal } from '../../lib/pwa'
+import { usePaymentConfig } from '../../lib/payments'
 import { supabase } from '../../lib/supabase'
 import { useOrderCodes } from '../../lib/useOrderCodes'
 import { useRealtime } from '../../lib/useRealtime'
@@ -19,6 +20,7 @@ export default function BusinessOrders({ business }) {
   const [list, setList] = useState(null)
   const [filter, setFilter] = useState('activos')
   const [own, setOwn] = useState([])
+  const { external_couriers: externalOn } = usePaymentConfig()
   const [paid, setPaid] = useState(null)
   const listRef = useRef(null)
   listRef.current = list
@@ -79,14 +81,14 @@ export default function BusinessOrders({ business }) {
       {shown.length === 0 && <Empty icon="📦" text={filter === 'activos' ? 'No hay pedidos activos. ¡Te avisamos cuando llegue uno!' : 'Sin pedidos aún'} />}
       <div className="orders-grid">
         {shown.map((o) => (
-          <OrderCard key={o.id} o={o} business={business} own={own} onChange={load} />
+          <OrderCard key={o.id} o={o} business={business} own={own} externalOn={externalOn} onChange={load} />
         ))}
       </div>
     </div>
   )
 }
 
-function OrderCard({ o, business, own, onChange }) {
+function OrderCard({ o, business, own, externalOn, onChange }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [chat, setChat] = useState(false)
@@ -123,7 +125,7 @@ function OrderCard({ o, business, own, onChange }) {
   const transferPending = needsProof(o.payment_method) && o.payment_status === 'pendiente'
   const online = isOnline(o.payment_method)
   // Sin domiciliarios propios, al aceptar el pedido se publica de una para los externos
-  const acceptFields = own.length ? {} : { dispatch: 'externo' }
+  const acceptFields = own.length || !externalOn ? {} : { dispatch: 'externo' }
   const needsCourier = ['aceptado', 'preparando'].includes(o.status) && !o.courier_id
 
   const assign = async () => {
@@ -266,7 +268,9 @@ function OrderCard({ o, business, own, onChange }) {
               </button>
             </div>
           )}
-          {o.dispatch === 'externo' ? (
+          {!externalOn ? (
+            !own.length && <p className="muted small">🛵 Registra a tus domiciliarios en la pestaña "Domiciliarios" para poder enviar tus pedidos.</p>
+          ) : o.dispatch === 'externo' ? (
             <p className="muted small">⏳ Publicado para domiciliarios externos. Esperando que uno lo tome…</p>
           ) : (
             <button className="btn ghost sm" disabled={busy} onClick={() => act({ dispatch: 'externo' })}>

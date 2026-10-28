@@ -21,6 +21,7 @@ import { directionsLink, hasCoords, mapsLink } from '../../lib/geo'
 import { alertNewService, alertOrderReceived } from '../../lib/alerts'
 import { notifyLocal } from '../../lib/pwa'
 import { supabase, uploadFile } from '../../lib/supabase'
+import { usePaymentConfig } from '../../lib/payments'
 import { useOrderCodes } from '../../lib/useOrderCodes'
 import { useRealtime } from '../../lib/useRealtime'
 import CourierStats from './CourierStats'
@@ -45,6 +46,7 @@ function CourierInner() {
   const { user, signOut } = useAuth()
   const [c, setC] = useState(undefined)
   const [editing, setEditing] = useState(false)
+  const { external_couriers: externalOn } = usePaymentConfig()
 
   const load = useCallback(async () => {
     // Si un negocio lo inscribió con este correo, queda vinculado como domiciliario propio
@@ -71,6 +73,26 @@ function CourierInner() {
           </button>
         </div>
         <button className="btn danger sm mt" onClick={signOut}>
+          Cerrar sesión
+        </button>
+      </div>
+    )
+
+  if (!c && !externalOn)
+    return (
+      <div className="page narrow">
+        <div className="card pad waiting">
+          <div className="empty-icon">⏸️</div>
+          <h2>Registro cerrado por ahora</h2>
+          <p className="muted">
+            Los domiciliarios de la plataforma están desactivados. Si trabajas con un negocio, pídele que te inscriba con este correo ({user.email}) y vuelve a
+            entrar.
+          </p>
+          <button className="btn ghost sm" onClick={load}>
+            ↻ Revisar de nuevo
+          </button>
+        </div>
+        <button className="btn ghost sm mt" onClick={signOut}>
           Cerrar sesión
         </button>
       </div>

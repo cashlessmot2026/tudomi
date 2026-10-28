@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 
 // Configuración pública: Mercado Pago activo y recargo por lluvia
 export function usePaymentConfig() {
-  const [cfg, setCfg] = useState({ mp_enabled: false, rain_mode: false, rain_pct: 50 })
+  const [cfg, setCfg] = useState({ mp_enabled: false, rain_mode: false, rain_pct: 50, external_couriers: true })
   useEffect(() => {
     supabase.rpc('payment_config').then(({ data }) => data && setCfg(data))
   }, [])

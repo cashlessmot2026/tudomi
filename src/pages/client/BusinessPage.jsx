@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Empty, Field, Img, Modal, Spinner } from '../../components/ui'
+import { useAuth } from '../../lib/auth'
 import { useCart } from '../../lib/cart'
 import { acceptedMethods, catLabel, money, priceLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
@@ -12,6 +13,7 @@ export default function BusinessPage() {
   const [sel, setSel] = useState(null)
   const [q, setQ] = useState('')
   const { groups } = useCart()
+  const { session } = useAuth()
 
   useEffect(() => {
     supabase.from('businesses').select('*').eq('id', id).maybeSingle().then(({ data }) => setB(data || false))
@@ -65,6 +67,12 @@ export default function BusinessPage() {
           </div>
         </div>
       </div>
+
+      {!session && (
+        <div className="card pad alert">
+          <b>👋 ¡Bienvenido!</b> Elige tus productos y, para confirmar el pedido, <Link to="/perfil">crea tu cuenta o ingresa</Link>. Es rápido y gratis.
+        </div>
+      )}
 
       <input className="input search" placeholder="🔎 Buscar productos…" value={q} onChange={(e) => setQ(e.target.value)} />
 
