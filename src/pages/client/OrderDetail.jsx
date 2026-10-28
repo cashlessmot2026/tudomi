@@ -7,12 +7,14 @@ import { Empty, Spinner, StatusBadge } from '../../components/ui'
 import { FLOW, STATUS, money, ticketReady } from '../../lib/format'
 import { notifyLocal } from '../../lib/pwa'
 import { supabase } from '../../lib/supabase'
+import { useOrderCodes } from '../../lib/useOrderCodes'
 import { useRealtime } from '../../lib/useRealtime'
 
 export default function OrderDetail() {
   const { id } = useParams()
   const [o, setO] = useState(null)
   const [chat, setChat] = useState(false)
+  const codes = useOrderCodes(id)
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('orders').select('*, businesses(name, phone, address, lat, lng)').eq('id', id).maybeSingle()
@@ -65,7 +67,7 @@ export default function OrderDetail() {
 
       {ready ? (
         <>
-          <OrderTicket order={o} businessName={o.businesses?.name} showCode={o.status !== 'entregado'} />
+          <OrderTicket order={o} businessName={o.businesses?.name} code={codes?.delivery_code} showCode={o.status !== 'entregado'} />
           <button className="btn ghost block no-print" onClick={() => window.print()}>
             🖨 Guardar / imprimir ticket
           </button>

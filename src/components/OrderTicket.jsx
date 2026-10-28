@@ -11,7 +11,7 @@ export const ItemLine = ({ it }) => (
   </div>
 )
 
-export function OrderTicket({ order: o, businessName, showCode = true }) {
+export function OrderTicket({ order: o, businessName, code, showCode = true }) {
   return (
     <div className="ticket">
       <div className="ticket-head">
@@ -57,10 +57,10 @@ export function OrderTicket({ order: o, businessName, showCode = true }) {
           {needsProof(o.payment_method) ? ' (validado)' : ' · contra entrega'}
         </div>
       </div>
-      {showCode && (
+      {showCode && code && (
         <div className="ticket-code">
           <small>Código de entrega</small>
-          <div className="code-big">{o.delivery_code}</div>
+          <div className="code-big">{code}</div>
           <small className="muted">Dáselo al domiciliario solo cuando recibas tu pedido</small>
         </div>
       )}

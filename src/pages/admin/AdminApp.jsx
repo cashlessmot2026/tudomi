@@ -404,7 +404,13 @@ function OrderDetailModal({ pass, id, onClose }) {
             </div>
           )}
 
-          <OrderTicket order={o} businessName={d.business?.name} />
+          <OrderTicket order={o} businessName={d.business?.name} code={d.codes?.delivery_code} />
+          {d.codes && (
+            <p className="muted small">
+              🔐 Código de retiro (domi → negocio): <b>{d.codes.pickup_code}</b>
+              {d.codes.picked_up_at && ` · retirado ${fmtDate(d.codes.picked_up_at)}`} · Código de entrega (cliente → domi): <b>{d.codes.delivery_code}</b>
+            </p>
+          )}
           <button className="btn ghost block" onClick={() => window.print()}>
             🖨 Imprimir ticket
           </button>

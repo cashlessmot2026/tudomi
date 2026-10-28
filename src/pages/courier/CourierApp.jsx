@@ -10,6 +10,7 @@ const chargeLabel = (m) => (m === 'efectivo' ? '💵 Cobrar en efectivo' : m ===
 import { directionsLink, hasCoords, mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase, uploadFile } from '../../lib/supabase'
+import { useOrderCodes } from '../../lib/useOrderCodes'
 import { useRealtime } from '../../lib/useRealtime'
 
 export default function CourierApp() {
@@ -403,6 +404,7 @@ function DeliveryCard({ o, onChange }) {
   const [code, setCode] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const codes = useOrderCodes(o.id, o.status)
 
   const call = async (fn, args) => {
     setBusy(true)
@@ -465,17 +467,14 @@ function DeliveryCard({ o, onChange }) {
           <span>{money(o.total)}</span>
         </div>
       </div>
-      <div className="code-row">
-        <span>Código del pedido</span>
-        <b className="code-sm">{o.delivery_code}</b>
-      </div>
-
-      {['aceptado', 'preparando'].includes(o.status) && (
-        <button className="btn block" disabled={busy} onClick={() => call('courier_mark_sent', { p_order: o.id })}>
-          📦 Recogí el pedido · voy en camino
-        </button>
+      {['aceptado', 'preparando'].includes(o.status) && codes?.pickup_code && (
+        <div className="ticket-code pickup-code">
+          <small>🔐 Tu código de retiro</small>
+          <div className="code-big">{codes.pickup_code}</div>
+          <small className="muted">Díctaselo al negocio para que te entregue el pedido. Cuando lo valide, el pedido queda “En camino”.</small>
+        </div>
       )}
-      {['aceptado', 'preparando', 'enviado'].includes(o.status) && (
+      {o.status === 'enviado' && (
         <div className="code-check">
           <p className="small muted">Pídele al cliente su código de 4 dígitos para finalizar la entrega.</p>
           <input

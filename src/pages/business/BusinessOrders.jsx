@@ -8,6 +8,7 @@ import { fmtDate, money, needsProof, payLabel, waUrl } from '../../lib/format'
 import { mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase } from '../../lib/supabase'
+import { useOrderCodes } from '../../lib/useOrderCodes'
 import { useRealtime } from '../../lib/useRealtime'
 
 const ACTIVE = ['pendiente', 'aceptado', 'preparando', 'enviado']
@@ -77,6 +78,20 @@ function OrderCard({ o, business, own, onChange }) {
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
   const [pick, setPick] = useState('')
+  const [pickup, setPickup] = useState('')
+  const codes = useOrderCodes(o.id, o.status)
+
+  const confirmPickup = async () => {
+    setBusy(true)
+    setErr('')
+    const { error } = await supabase.rpc('confirm_pickup', { p_order: o.id, p_code: pickup })
+    setBusy(false)
+    if (error) setErr(error.message)
+    else {
+      setPickup('')
+      onChange()
+    }
+  }
 
   const act = async (fields) => {
     setBusy(true)
@@ -168,10 +183,34 @@ function OrderCard({ o, business, own, onChange }) {
         </a>
       )}
 
-      <div className="code-row">
-        <span>Código de entrega</span>
-        <b className="code-sm">{o.delivery_code}</b>
-      </div>
+      {codes?.delivery_code && o.status !== 'rechazado' && (
+        <div className="code-row">
+          <span>
+            Código de entrega <small className="muted">(lo tiene el cliente; el domi no lo ve)</small>
+          </span>
+          <b className="code-sm">{codes.delivery_code}</b>
+        </div>
+      )}
+      {o.courier_id && ['aceptado', 'preparando'].includes(o.status) && (
+        <div className="pickup-box">
+          <b className="small">🔐 Entregar al domiciliario</b>
+          <p className="muted small">Pídele a {o.courier_name || 'el domiciliario'} su código de retiro de 4 dígitos y escríbelo aquí.</p>
+          <div className="dispatch-row">
+            <input
+              className="input code-input sm"
+              inputMode="numeric"
+              maxLength={4}
+              placeholder="0000"
+              value={pickup}
+              onChange={(e) => setPickup(e.target.value.replace(/\D/g, ''))}
+            />
+            <button className="btn ok sm" disabled={busy || pickup.length !== 4} onClick={confirmPickup}>
+              ✔ Validar y entregar
+            </button>
+          </div>
+        </div>
+      )}
+      {codes?.picked_up_at && <div className="muted small">📦 Retirado por el domiciliario: {fmtDate(codes.picked_up_at)}</div>}
       {o.courier_name && (
         <div className="small">
           🛵 {o.courier_name} <span className="pill">{o.dispatch === 'propio' ? 'Propio' : 'Externo'}</span>{' '}
@@ -226,11 +265,6 @@ function OrderCard({ o, business, own, onChange }) {
         {o.status === 'aceptado' && (
           <button className="btn sm" disabled={busy} onClick={() => act({ status: 'preparando' })}>
             👨‍🍳 Preparando
-          </button>
-        )}
-        {['aceptado', 'preparando'].includes(o.status) && (
-          <button className="btn sm" disabled={busy} onClick={() => act({ status: 'enviado' })}>
-            🛵 Enviado
           </button>
         )}
         {o.status === 'pendiente' && !rejecting && (
