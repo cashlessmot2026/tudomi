@@ -6,6 +6,7 @@ import { OrderTicket } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, Img, Modal, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { catLabel, fmtDate, isPrepaid, money, payLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
+import { AdminAds } from './AdminAds'
 import { AdminAnalytics, PlatformSettings } from './AdminFinance'
 
 const KEY = 'tudomi_admin'
@@ -124,6 +125,7 @@ function AdminPanel({ pass, stats, refreshStats, logout }) {
             ['negocios', '🏪 Negocios'],
             ['pedidos', '📦 Pedidos'],
             ['analitica', '📊 Analítica'],
+            ['publicidad', '📣 Publicidad'],
             ['ajustes', '⚙️ Ajustes'],
           ]}
         />
@@ -131,6 +133,7 @@ function AdminPanel({ pass, stats, refreshStats, logout }) {
         {tab === 'negocios' && <Businesses pass={pass} />}
         {tab === 'pedidos' && <AllOrders pass={pass} />}
         {tab === 'analitica' && <AdminAnalytics pass={pass} />}
+        {tab === 'publicidad' && <AdminAds pass={pass} />}
         {tab === 'ajustes' && (
           <div className="stack">
             <MercadoPagoSwitch pass={pass} />

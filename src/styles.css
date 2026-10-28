@@ -366,3 +366,20 @@ th { color: var(--muted); font-weight: 600; }
 .range-row .input { width: auto; }
 .bar { height: 8px; border-radius: 4px; background: var(--brand); min-width: 2px; }
 .earn { color: var(--ok); font-weight: 700; }
+
+/* Carrusel de publicidad */
+.ads { position: relative; margin: 4px 0 18px; }
+.ads-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: var(--r); }
+.ads-track::-webkit-scrollbar { display: none; }
+.ad-slide { position: relative; flex: 0 0 100%; scroll-snap-align: start; aspect-ratio: 16 / 7; min-height: 150px; max-height: 320px; padding: 0; border: 0; cursor: pointer; overflow: hidden; background: var(--card2); color: #fff; text-align: left; }
+.ad-slide img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ad-text { position: absolute; inset: auto 0 0 0; padding: 14px 16px 26px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.82)); display: flex; flex-direction: column; gap: 4px; }
+.ad-text h3 { margin: 0; font-size: 1.15rem; line-height: 1.2; }
+.ad-text p { margin: 0; font-size: 0.88rem; opacity: 0.9; }
+.ad-tag { align-self: flex-start; font-size: 0.68rem; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.18); }
+.ad-cta { align-self: flex-start; font-size: 0.85rem; font-weight: 700; color: var(--brand2); }
+.ad-dots { position: absolute; bottom: 8px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px; }
+.ad-dots button { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.45); cursor: pointer; transition: width 0.2s; }
+.ad-dots button.on { width: 22px; background: #fff; }
+.ad-row { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.ad-row img { width: 96px; height: 42px; object-fit: cover; border-radius: 8px; }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AdsCarousel } from '../../components/AdsCarousel'
 import { Empty, Img, Spinner } from '../../components/ui'
 import { CATEGORIES, acceptedMethods, catLabel, money } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
@@ -32,6 +33,8 @@ export default function Home() {
         <p className="muted">Restaurantes, mercado fresco y tecnología a la puerta de tu casa.</p>
         <input className="input search" placeholder="🔎 Buscar negocios…" value={q} onChange={(e) => setQ(e.target.value)} />
       </section>
+
+      <AdsCarousel />
 
       <div className="cat-grid">
         <button className={`cat ${cat === 'todos' ? 'active' : ''}`} onClick={() => setCat('todos')}>

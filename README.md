@@ -62,6 +62,10 @@ Es un SPA estático (`npm run build` genera `dist/`). Sirve en Cloudflare Pages,
 - **Analítica**: **/admin → Analítica** (ventas por día, comisiones, liquidación por negocio y por domiciliario), **/negocio → Ventas** y **/domiciliario → Ganancias**.
 - **Alertas**: voz y sonido para el domiciliario ("tienes un nuevo servicio", "pedido recibido"), y para el negocio ("pedido recibido", "has recibido un pago de…" cuando el webhook confirma Mercado Pago). Check animado al entregar y al confirmarse el pago.
 
+### Publicidad (carrusel)
+
+Los negocios que pautan aparecen en un carrusel automático arriba del inicio de la app de clientes. El superadmin lo activa y gestiona en **/admin → Publicidad**: imagen, título, texto, botón, tienda o enlace externo, fechas de vigencia, valor pagado y clics. Los anuncios vencidos se ocultan solos.
+
 ### Planes de suscripción para negocios
 
 Los negocios ven la pestaña **⭐ Planes** con los planes de Mercado Pago Suscripciones. El admin edita nombre, valor, detalles y link en **/admin → Ajustes**.
