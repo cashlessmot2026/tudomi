@@ -115,7 +115,7 @@ function CheckoutGroup({ bid, business, list, canOrder, cfg }) {
           return await payWithMercadoPago(data.id)
         } catch {}
       }
-      nav(`/pedidos/${data.id}`)
+      nav(`/pedidos/${data.id}`, { state: { nuevo: true } })
     } catch (e) {
       setErr(e.message)
       setBusy(false)

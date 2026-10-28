@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RequireAuth } from '../../components/AuthForm'
+import MapView from '../../components/MapView'
 import { ItemLine } from '../../components/OrderTicket'
 import { SuccessCheck } from '../../components/SuccessCheck'
 import { Empty, ErrorText, Field, InstallButton, PushButton, Spinner, StatusBadge, Tabs } from '../../components/ui'
@@ -236,6 +237,8 @@ function CourierDashboard({ courier }) {
   const [mine, setMine] = useState(null)
   const [err, setErr] = useState('')
   const [delivered, setDelivered] = useState(null)
+  const [taken, setTaken] = useState(null)
+  const statuses = useRef({})
   const seen = useRef(null)
 
   const loadAvail = useCallback(async () => {
@@ -264,6 +267,10 @@ function CourierDashboard({ courier }) {
       notifyLocal('Nuevo servicio asignado 🛵', 'Tienes un nuevo servicio', '/domiciliario')
     }
     seen.current = ids
+    for (const o of data || []) {
+      if (o.status === 'entregado' && statuses.current[o.id] && statuses.current[o.id] !== 'entregado') setDelivered(o)
+      statuses.current[o.id] = o.status
+    }
     setMine(data || [])
   }, [courier.id])
 
@@ -284,6 +291,7 @@ function CourierDashboard({ courier }) {
       // Marca el pedido como visto para que no suene como asignación nueva
       seen.current?.add(id)
       alertOrderReceived()
+      setTaken((avail || []).find((o) => o.id === id) || {})
     }
     await Promise.all([loadAvail(), loadMine()])
     if (!error) setTab('mios')
@@ -294,6 +302,13 @@ function CourierDashboard({ courier }) {
 
   return (
     <div className="page">
+      {taken && (
+        <SuccessCheck
+          title="¡Servicio tomado!"
+          subtitle={taken.number ? `Pedido #${taken.number} · ve a recogerlo en ${taken.business_name}` : 'Ve a recoger el pedido'}
+          onDone={() => setTaken(null)}
+        />
+      )}
       {delivered && (
         <SuccessCheck title="¡Pedido entregado!" subtitle={`#${delivered.number} · ganaste ${money(earnings(delivered))}`} onDone={() => setDelivered(null)} />
       )}
@@ -485,9 +500,12 @@ function DeliveryCard({ o, onChange, onDelivered }) {
           📍 {o.businesses?.address}
         </a>
         {hasCoords(o.businesses) && ['aceptado', 'preparando'].includes(o.status) && (
-          <a className="btn ghost sm nav-btn" href={directionsLink(o.businesses.lat, o.businesses.lng)} target="_blank" rel="noreferrer">
-            🧭 Cómo llegar al negocio
-          </a>
+          <>
+            <MapView height={170} points={[{ id: 'negocio', lat: o.businesses.lat, lng: o.businesses.lng, emoji: '🏪', label: o.businesses.name }]} />
+            <a className="btn ghost sm nav-btn" href={directionsLink(o.businesses.lat, o.businesses.lng)} target="_blank" rel="noreferrer">
+              🧭 Cómo llegar al negocio (Google Maps)
+            </a>
+          </>
         )}
       </div>
       <div className="ticket-sec small">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { Chat } from '../../components/Chat'
 import { CourierTracker } from '../../components/CourierTracker'
 import { ItemLine, OrderTicket } from '../../components/OrderTicket'
@@ -19,6 +19,8 @@ export default function OrderDetail() {
   const [paying, setPaying] = useState(false)
   const [payErr, setPayErr] = useState('')
   const [paidCheck, setPaidCheck] = useState(false)
+  const { state } = useLocation()
+  const [placedCheck, setPlacedCheck] = useState(!!state?.nuevo)
   const lastPay = useRef(null)
   const codes = useOrderCodes(id)
 
@@ -66,6 +68,9 @@ export default function OrderDetail() {
 
   return (
     <div className="page narrow">
+      {placedCheck && !paidCheck && (
+        <SuccessCheck title="¡Pedido enviado!" subtitle="El negocio ya recibió tu pedido" onDone={() => setPlacedCheck(false)} />
+      )}
       {paidCheck && (
         <SuccessCheck title="¡Pago aprobado!" subtitle={`Mercado Pago confirmó tu pago de ${money(o.total)}`} onDone={() => setPaidCheck(false)} />
       )}
