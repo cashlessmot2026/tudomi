@@ -14,6 +14,9 @@ export const CATEGORIES = [
   { id: 'tecnologia', label: 'Tecnología', icon: '📱' },
 ]
 
+// Sugerencias de ciudad (el campo permite escribir cualquier otra)
+export const CITIES = ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Bucaramanga', 'Cúcuta', 'Pereira', 'Manizales', 'Santa Marta', 'Ibagué', 'Villavicencio', 'Pasto', 'Neiva', 'Armenia', 'Montería', 'Valledupar', 'Popayán', 'Tunja', 'Sincelejo']
+
 export const catLabel = (id) => CATEGORIES.find((c) => c.id === id)?.label || id
 
 export const STATUS = {

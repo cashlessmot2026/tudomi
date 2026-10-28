@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { getPosition, hasCoords, reverseGeocode } from '../lib/geo'
+import { getPosition, hasCoords, reverseGeocodeDetail } from '../lib/geo'
 import MapView from './MapView'
 
 /**
@@ -18,8 +18,8 @@ export default function AddressPicker({ value, onChange, label = 'Dirección', r
     onChange({ ...v, lat, lng })
     if (keepText) return
     try {
-      const address = await reverseGeocode(lat, lng)
-      if (address) onChange({ ...v, lat, lng, address })
+      const { address, city } = await reverseGeocodeDetail(lat, lng)
+      if (address) onChange({ ...v, lat, lng, address, city })
     } catch {
       // Sin dirección automática: quedan las coordenadas y el texto se escribe a mano
     }

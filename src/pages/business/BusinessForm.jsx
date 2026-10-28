@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import AddressPicker from '../../components/AddressPicker'
 import { ErrorText, Field, Img } from '../../components/ui'
-import { CATEGORIES, PAY_METHODS, imageUrl } from '../../lib/format'
+import { CATEGORIES, CITIES, PAY_METHODS, imageUrl } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 const EMPTY = {
@@ -11,6 +11,7 @@ const EMPTY = {
   logo_url: '',
   cover_url: '',
   address: '',
+  city: '',
   phone: '',
   delivery_fee: 0,
   accepts_cash: true,
@@ -45,6 +46,7 @@ export default function BusinessForm({ initial, onSaved }) {
       logo_url: imageUrl(f.logo_url) || null,
       cover_url: imageUrl(f.cover_url) || null,
       address: f.address,
+      city: f.city.trim(),
       lat: f.lat ?? null,
       lng: f.lng ?? null,
       phone: f.phone,
@@ -100,8 +102,16 @@ export default function BusinessForm({ initial, onSaved }) {
         label="Dirección del negocio"
         required
         value={f}
-        onChange={(a) => setF((prev) => ({ ...prev, address: a.address ?? '', lat: a.lat ?? null, lng: a.lng ?? null }))}
+        onChange={(a) => setF((prev) => ({ ...prev, address: a.address ?? '', lat: a.lat ?? null, lng: a.lng ?? null, city: a.city || prev.city }))}
       />
+      <Field label="Ciudad" hint="Los clientes solo ven los negocios de su ciudad">
+        <input className="input" required list="ciudades" value={f.city || ''} onChange={set('city')} placeholder="Ej: Bogotá" />
+        <datalist id="ciudades">
+          {CITIES.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+      </Field>
       <Field label="Teléfono / WhatsApp">
         <input className="input" required type="tel" value={f.phone || ''} onChange={set('phone')} />
       </Field>

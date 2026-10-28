@@ -393,3 +393,6 @@ th { color: var(--muted); font-weight: 600; }
 .ad-dots button.on { width: 22px; background: #fff; }
 .ad-row { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
 .ad-row img { width: 96px; height: 42px; object-fit: cover; border-radius: 8px; }
+
+/* Selector de ciudad del cliente */
+.city-bar { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
