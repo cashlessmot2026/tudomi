@@ -1,0 +1,62 @@
+import { useEffect, useState } from 'react'
+import { ErrorText, Field, InstallButton, PushButton } from '../../components/ui'
+import { useAuth } from '../../lib/auth'
+
+export default function Profile() {
+  const { user, profile, updateProfile, signOut } = useAuth()
+  const [f, setF] = useState({ full_name: '', phone: '', address: '' })
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    if (profile) setF({ full_name: profile.full_name || '', phone: profile.phone || '', address: profile.address || '' })
+  }, [profile])
+
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const save = async (e) => {
+    e.preventDefault()
+    setMsg('')
+    setErr('')
+    try {
+      await updateProfile(f)
+      setMsg('Datos guardados ✔')
+    } catch (x) {
+      setErr(x.message)
+    }
+  }
+
+  return (
+    <div className="page narrow">
+      <h2 className="title">Mi cuenta</h2>
+      <p className="muted">{user.email}</p>
+      <form className="card pad form" onSubmit={save}>
+        <Field label="Nombre">
+          <input className="input" value={f.full_name} onChange={set('full_name')} />
+        </Field>
+        <Field label="Celular">
+          <input className="input" type="tel" value={f.phone} onChange={set('phone')} />
+        </Field>
+        <Field label="Dirección">
+          <input className="input" value={f.address} onChange={set('address')} />
+        </Field>
+        <ErrorText>{err}</ErrorText>
+        {msg && <p className="success">{msg}</p>}
+        <button className="btn">Guardar</button>
+      </form>
+
+      <div className="card pad stack">
+        <PushButton app="cliente" />
+        <InstallButton />
+        <a className="btn ghost sm" href="/negocio">
+          🏪 ¿Tienes un negocio? Publica tus productos
+        </a>
+        <a className="btn ghost sm" href="/domiciliario">
+          🛵 Quiero ser domiciliario
+        </a>
+        <button className="btn danger sm" onClick={signOut}>
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  )
+}

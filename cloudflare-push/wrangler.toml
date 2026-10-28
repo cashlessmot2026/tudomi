@@ -1,0 +1,12 @@
+name = "tudomi-push"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[vars]
+SUPABASE_URL = "https://xvyldsknuacajphzeivc.supabase.co"
+VAPID_SUBJECT = "mailto:soporte@tudomi.app"
+# Secretos (no van aquí):
+#   wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+#   wrangler secret put VAPID_PUBLIC_KEY
+#   wrangler secret put VAPID_PRIVATE_KEY
+#   wrangler secret put PUSH_SECRET
