@@ -1,0 +1,5 @@
+project_id = "xvyldsknuacajphzeivc"
+
+# Mercado Pago llama al webhook sin JWT de Supabase; la función valida la firma x-signature
+[functions.mp-webhook]
+verify_jwt = false

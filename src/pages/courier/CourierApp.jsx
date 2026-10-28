@@ -4,9 +4,9 @@ import { RequireAuth } from '../../components/AuthForm'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, InstallButton, PushButton, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { fmtDate, money, needsProof, waUrl } from '../../lib/format'
+import { fmtDate, isPrepaid, money, waUrl } from '../../lib/format'
 
-const chargeLabel = (m) => (m === 'efectivo' ? '💵 Cobrar en efectivo' : m === 'datafono' ? '💳 Cobrar con datáfono' : needsProof(m) ? '✅ Ya pagado' : 'Cobrar')
+const chargeLabel = (m) => (m === 'efectivo' ? '💵 Cobrar en efectivo' : m === 'datafono' ? '💳 Cobrar con datáfono' : isPrepaid(m) ? '✅ Ya pagado' : 'Cobrar')
 import { directionsLink, hasCoords, mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase, uploadFile } from '../../lib/supabase'

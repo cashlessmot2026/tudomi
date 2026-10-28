@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase'
 import BusinessCouriers from './BusinessCouriers'
 import BusinessForm from './BusinessForm'
 import BusinessOrders from './BusinessOrders'
+import BusinessPlans from './BusinessPlans'
 import BusinessProducts from './BusinessProducts'
 
 export default function BusinessApp() {
@@ -79,6 +80,7 @@ function BusinessInner() {
           ['pedidos', '📦 Pedidos'],
           ['productos', '🛍️ Productos'],
           ['domis', '🛵 Domiciliarios'],
+          ['planes', '⭐ Planes'],
           ['ajustes', '⚙️ Ajustes'],
         ]}
       />
@@ -86,6 +88,7 @@ function BusinessInner() {
       {tab === 'pedidos' && <BusinessOrders business={b} />}
       {tab === 'productos' && <BusinessProducts business={b} />}
       {tab === 'domis' && <BusinessCouriers business={b} />}
+      {tab === 'planes' && <BusinessPlans />}
       {tab === 'ajustes' && (
         <div className="narrow">
           <BusinessForm initial={b} onSaved={load} />

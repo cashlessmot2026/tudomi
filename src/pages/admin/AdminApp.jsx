@@ -4,7 +4,7 @@ import MapView from '../../components/MapView'
 import { hasCoords, timeAgo } from '../../lib/geo'
 import { OrderTicket } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, Img, Modal, Spinner, StatusBadge, Tabs } from '../../components/ui'
-import { catLabel, fmtDate, money, needsProof, payLabel } from '../../lib/format'
+import { catLabel, fmtDate, isPrepaid, money, payLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 const KEY = 'tudomi_admin'
@@ -128,7 +128,13 @@ function AdminPanel({ pass, stats, refreshStats, logout }) {
         {tab === 'domis' && <Couriers pass={pass} onChange={refreshStats} />}
         {tab === 'negocios' && <Businesses pass={pass} />}
         {tab === 'pedidos' && <AllOrders pass={pass} />}
-        {tab === 'ajustes' && <ChangePass pass={pass} onDone={logout} />}
+        {tab === 'ajustes' && (
+          <div className="stack">
+            <MercadoPagoSwitch pass={pass} />
+            <Plans pass={pass} />
+            <ChangePass pass={pass} onDone={logout} />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -371,7 +377,8 @@ function OrderDetailModal({ pass, id, onClose }) {
             <div>
               <b>Pago</b>
               {payLabel(o.payment_method)}
-              {needsProof(o.payment_method) && ` · ${o.payment_status}`}
+              {isPrepaid(o.payment_method) && ` · ${o.payment_status}`}
+              {o.mp_payment_id && <span className="muted">MP #{o.mp_payment_id} · {o.mp_status}</span>}
               {o.payment_proof_url && (
                 <a href={o.payment_proof_url} target="_blank" rel="noreferrer">
                   Ver comprobante
@@ -438,5 +445,126 @@ function ChangePass({ pass, onDone }) {
       <ErrorText>{err}</ErrorText>
       <button className="btn">Guardar</button>
     </form>
+  )
+}
+
+function MercadoPagoSwitch({ pass }) {
+  const [on, setOn] = useState(null)
+  const [err, setErr] = useState('')
+  useEffect(() => {
+    supabase.rpc('payment_config').then(({ data }) => setOn(!!data?.mp_enabled))
+  }, [])
+  const toggle = async () => {
+    setErr('')
+    const { error } = await supabase.rpc('admin_set_mp_enabled', { p_pass: pass, p_enabled: !on })
+    if (error) return setErr(error.message)
+    setOn(!on)
+  }
+  return (
+    <div className="card pad narrow">
+      <div className="row-between">
+        <div>
+          <h3>🟦 Pagos con Mercado Pago</h3>
+          <p className="muted small">Muestra a los clientes de todos los negocios el botón para pagar en línea con tarjeta crédito, débito o PSE.</p>
+        </div>
+        {on !== null && (
+          <button className={`btn sm ${on ? 'ok' : 'danger'}`} onClick={toggle}>
+            {on ? '● Activado' : '● Desactivado'}
+          </button>
+        )}
+      </div>
+      <ErrorText>{err}</ErrorText>
+    </div>
+  )
+}
+
+const EMPTY_PLAN = { name: '', price: '', period: 'mes', details: '', checkout_url: '', active: true, sort: 0 }
+
+function Plans({ pass }) {
+  const [list, setList] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc('admin_list_plans', { p_pass: pass })
+    if (error) setErr(error.message)
+    setList(data || [])
+  }, [pass])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const save = async (e) => {
+    e.preventDefault()
+    setErr('')
+    const { error } = await supabase.rpc('admin_save_plan', { p_pass: pass, p_plan: { ...edit, price: Number(edit.price || 0) } })
+    if (error) return setErr(error.message)
+    setEdit(null)
+    load()
+  }
+  const del = async (p) => {
+    if (!window.confirm(`¿Eliminar el plan "${p.name}"?`)) return
+    const { error } = await supabase.rpc('admin_delete_plan', { p_pass: pass, p_id: p.id })
+    if (error) return setErr(error.message)
+    load()
+  }
+  const set = (k) => (e) => setEdit({ ...edit, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
+
+  return (
+    <div className="card pad narrow">
+      <div className="row-between">
+        <h3>⭐ Planes de suscripción para negocios</h3>
+        <button className="btn sm" onClick={() => setEdit({ ...EMPTY_PLAN, sort: (list?.length || 0) + 1 })}>
+          + Nuevo plan
+        </button>
+      </div>
+      <p className="muted small">
+        Crea el plan en Mercado Pago (Suscripciones) y pega aquí su link. Los negocios lo ven en la pestaña ⭐ Planes.
+      </p>
+      <ErrorText>{err}</ErrorText>
+      {list === null && <Spinner />}
+      {list?.map((p) => (
+        <div key={p.id} className={`row-between plan-row ${p.active ? '' : 'off'}`}>
+          <div className="grow">
+            <b>{p.name}</b> · {money(p.price)} / {p.period} {!p.active && <span className="pill">oculto</span>}
+            {p.details && <div className="muted small">{p.details}</div>}
+          </div>
+          <button className="btn ghost sm" onClick={() => setEdit(p)}>
+            ✏️
+          </button>
+          <button className="btn danger sm" onClick={() => del(p)}>
+            🗑
+          </button>
+        </div>
+      ))}
+      {edit && (
+        <Modal title={edit.id ? 'Editar plan' : 'Nuevo plan'} onClose={() => setEdit(null)}>
+          <form className="form" onSubmit={save}>
+            <Field label="Nombre">
+              <input className="input" required value={edit.name} onChange={set('name')} />
+            </Field>
+            <Field label="Valor (COP)">
+              <input className="input" type="number" min={0} step={1000} required value={edit.price} onChange={set('price')} />
+            </Field>
+            <Field label="Periodo">
+              <input className="input" value={edit.period} onChange={set('period')} placeholder="mes" />
+            </Field>
+            <Field label="Detalles">
+              <textarea className="input" rows={4} value={edit.details || ''} onChange={set('details')} placeholder="Qué incluye el plan" />
+            </Field>
+            <Field label="Link de suscripción de Mercado Pago">
+              <input className="input" type="url" required value={edit.checkout_url} onChange={set('checkout_url')} placeholder="https://www.mercadopago.com.co/subscriptions/checkout?preapproval_plan_id=…" />
+            </Field>
+            <Field label="Orden">
+              <input className="input" type="number" value={edit.sort} onChange={set('sort')} />
+            </Field>
+            <label className="check">
+              <input type="checkbox" checked={!!edit.active} onChange={set('active')} /> Visible para los negocios
+            </label>
+            <ErrorText>{err}</ErrorText>
+            <button className="btn block">Guardar plan</button>
+          </form>
+        </Modal>
+      )}
+    </div>
   )
 }

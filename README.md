@@ -46,6 +46,18 @@ Es un SPA estático (`npm run build` genera `dist/`). Sirve en Cloudflare Pages,
 - **iPhone/Safari**: Compartir → *Agregar a pantalla de inicio*.
 - Para publicar en Play Store o App Store se puede empaquetar con [PWABuilder](https://www.pwabuilder.com) o Capacitor.
 
+### Pagos con Mercado Pago (Checkout Pro)
+
+- El admin lo activa o desactiva en **/admin → Ajustes**. Activo, el cliente ve la opción **🟦 Mercado Pago** (tarjeta crédito, débito o PSE) en todos los negocios.
+- Flujo: el cliente hace el pedido → `mp-create-preference` crea el pago → Mercado Pago avisa a `mp-webhook` → `mp_apply_payment` marca el pago como *validado*. El negocio solo puede aceptar el pedido cuando el pago está aprobado.
+- El dinero llega a la cuenta de Mercado Pago dueña del `MP_ACCESS_TOKEN` (la plataforma), que luego le paga a cada negocio.
+- Secretos de las Edge Functions: `MP_ACCESS_TOKEN` (Access Token de producción, o `TEST-…` para pruebas) y `MP_WEBHOOK_SECRET` (clave secreta de la sección Webhooks).
+- Webhook en Mercado Pago (Tus integraciones → Webhooks, evento **Pagos**): `https://xvyldsknuacajphzeivc.supabase.co/functions/v1/mp-webhook`.
+
+### Planes de suscripción para negocios
+
+Los negocios ven la pestaña **⭐ Planes** con los planes de Mercado Pago Suscripciones. El admin edita nombre, valor, detalles y link en **/admin → Ajustes**.
+
 ### Notificaciones push
 
 Ver `cloudflare-push/README.md`.

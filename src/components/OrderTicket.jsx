@@ -1,4 +1,4 @@
-import { fmtDate, money, needsProof, payLabel, qtyLabel } from '../lib/format'
+import { fmtDate, isPrepaid, money, payLabel, qtyLabel } from '../lib/format'
 import { StatusBadge } from './ui'
 
 export const ItemLine = ({ it }) => (
@@ -54,7 +54,7 @@ export function OrderTicket({ order: o, businessName, code, showCode = true }) {
         </div>
         <div className="muted small">
           Pago: {payLabel(o.payment_method)}
-          {needsProof(o.payment_method) ? ' (validado)' : ' · contra entrega'}
+          {isPrepaid(o.payment_method) ? ' (validado)' : ' · contra entrega'}
         </div>
       </div>
       {showCode && code && (

@@ -36,13 +36,19 @@ export const PAY_METHODS = [
   { id: 'link', flag: 'accepts_link', label: 'Link de pago', icon: '🔗', hint: 'Pagas en línea y subes el comprobante', proof: true },
 ]
 
-export const payMethod = (id) => PAY_METHODS.find((m) => m.id === id) || { id, label: id, icon: '💰', proof: false }
+// Pago en línea: lo activa el admin para todos los negocios y se confirma solo (webhook)
+export const MP_METHOD = { id: 'mercadopago', label: 'Mercado Pago', icon: '🟦', hint: 'Tarjeta crédito, débito o PSE en línea', proof: false, online: true }
+
+export const payMethod = (id) => [...PAY_METHODS, MP_METHOD].find((m) => m.id === id) || { id, label: id, icon: '💰', proof: false }
 export const payLabel = (id) => `${payMethod(id).icon} ${payMethod(id).label}`
 export const needsProof = (id) => payMethod(id).proof
-export const acceptedMethods = (b) => (b ? PAY_METHODS.filter((m) => b[m.flag]) : [])
+export const isOnline = (id) => !!payMethod(id).online
+export const isPrepaid = (id) => needsProof(id) || isOnline(id)
+export const acceptedMethods = (b, mpEnabled = false) =>
+  b ? [...PAY_METHODS.filter((m) => b[m.flag]), ...(mpEnabled ? [MP_METHOD] : [])] : []
 
-// Pago contra entrega: el ticket se muestra de una. Pago anticipado: cuando el negocio valida el pago.
-export const ticketReady = (o) => o.status !== 'rechazado' && (!needsProof(o.payment_method) || o.payment_status === 'validado')
+// Pago contra entrega: el ticket se muestra de una. Pago anticipado: cuando el pago queda validado.
+export const ticketReady = (o) => o.status !== 'rechazado' && (!isPrepaid(o.payment_method) || o.payment_status === 'validado')
 
 // Convierte enlaces de compartir (Google Drive, Dropbox) en URLs directas de imagen
 export function imageUrl(url) {

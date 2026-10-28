@@ -5,13 +5,15 @@ import { AuthForm } from '../../components/AuthForm'
 import { Empty, ErrorText, Field, Img } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { useCart } from '../../lib/cart'
-import { acceptedMethods, money, needsProof, payMethod, qtyLabel } from '../../lib/format'
+import { acceptedMethods, isOnline, money, needsProof, payMethod, qtyLabel } from '../../lib/format'
+import { payWithMercadoPago, usePaymentConfig } from '../../lib/payments'
 import { supabase, uploadFile } from '../../lib/supabase'
 
 export default function Cart() {
   const { items, groups } = useCart()
   const { session } = useAuth()
   const [biz, setBiz] = useState({})
+  const { mp_enabled } = usePaymentConfig()
   const ids = Object.keys(groups).sort().join(',')
 
   useEffect(() => {
@@ -39,13 +41,13 @@ export default function Cart() {
       <h2 className="title">Tu carrito</h2>
       {!session && <AuthForm title="Ingresa para pedir" subtitle="Usa tu cuenta de Google o regístrate" />}
       {Object.entries(groups).map(([bid, list]) => (
-        <CheckoutGroup key={bid} bid={bid} business={biz[bid]} list={list} canOrder={!!session} />
+        <CheckoutGroup key={bid} bid={bid} business={biz[bid]} list={list} canOrder={!!session} mpEnabled={mp_enabled} />
       ))}
     </div>
   )
 }
 
-function CheckoutGroup({ bid, business, list, canOrder }) {
+function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
   const { setQty, remove, clearBusiness } = useCart()
   const { user, profile, updateProfile } = useAuth()
   const nav = useNavigate()
@@ -64,9 +66,10 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
     }
   }, [profile])
 
+  const methods = acceptedMethods(business, mpEnabled)
   useEffect(() => {
-    if (business && !method) setMethod(acceptedMethods(business)[0]?.id || '')
-  }, [business, method])
+    if (business && !methods.some((m) => m.id === method)) setMethod(methods[0]?.id || '')
+  }, [business, method, methods])
 
   const subtotal = list.reduce((s, i) => s + i.unit_price * i.qty, 0)
   const fee = Number(business?.delivery_fee || 0)
@@ -100,6 +103,12 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
       if (!profile?.address || !profile?.phone || profile?.lat == null)
         updateProfile({ address: dest.address.trim(), lat: dest.lat ?? null, lng: dest.lng ?? null, phone: phone.trim() }).catch(() => {})
       clearBusiness(bid)
+      if (isOnline(method)) {
+        // Si falla la redirección, el cliente puede reintentar el pago desde el detalle del pedido
+        try {
+          return await payWithMercadoPago(data.id)
+        } catch {}
+      }
       nav(`/pedidos/${data.id}`)
     } catch (e) {
       setErr(e.message)
@@ -149,7 +158,7 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
       {business && (
         <Field label="Método de pago">
           <div className="pay-methods">
-            {acceptedMethods(business).map((m) => (
+            {methods.map((m) => (
               <button key={m.id} type="button" className={`pay ${method === m.id ? 'active' : ''}`} onClick={() => setMethod(m.id)}>
                 {m.icon} {m.label}
               </button>
@@ -160,6 +169,13 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
       )}
 
       {method === 'datafono' && <p className="note-box small">💳 El domiciliario llevará el datáfono. Paga {money(subtotal + fee)} con tu tarjeta al recibir.</p>}
+
+      {method === 'mercadopago' && (
+        <p className="note-box small">
+          🟦 Al hacer el pedido te llevamos a Mercado Pago para pagar {money(subtotal + fee)} con tarjeta crédito, débito o PSE. El negocio
+          recibe el pedido confirmado en cuanto se apruebe el pago.
+        </p>
+      )}
 
       {business && needsProof(method) && (
         <div className="transfer-box">
@@ -214,7 +230,13 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
       {business && !business.is_open && <p className="error">Este negocio está cerrado ahora.</p>}
       <ErrorText>{err}</ErrorText>
       <button className="btn block pulse" disabled={!canOrder || busy || !business?.is_open} onClick={order}>
-        {busy ? 'Enviando pedido…' : canOrder ? `Hacer pedido · ${money(subtotal + fee)}` : 'Ingresa para hacer el pedido'}
+        {busy
+          ? 'Enviando pedido…'
+          : !canOrder
+            ? 'Ingresa para hacer el pedido'
+            : method === 'mercadopago'
+              ? `Pagar con Mercado Pago · ${money(subtotal + fee)}`
+              : `Hacer pedido · ${money(subtotal + fee)}`}
       </button>
     </div>
   )

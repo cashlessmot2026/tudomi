@@ -4,7 +4,7 @@ import { CourierTracker } from '../../components/CourierTracker'
 import { DeliveryLocation } from '../../components/DeliveryLocation'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Spinner, StatusBadge, Tabs } from '../../components/ui'
-import { fmtDate, money, needsProof, payLabel, waUrl } from '../../lib/format'
+import { fmtDate, isOnline, money, needsProof, payLabel, waUrl } from '../../lib/format'
 import { mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase } from '../../lib/supabase'
@@ -106,6 +106,7 @@ function OrderCard({ o, business, own, onChange }) {
   }
 
   const transferPending = needsProof(o.payment_method) && o.payment_status === 'pendiente'
+  const online = isOnline(o.payment_method)
   // Sin domiciliarios propios, al aceptar el pedido se publica de una para los externos
   const acceptFields = own.length ? {} : { dispatch: 'externo' }
   const needsCourier = ['aceptado', 'preparando'].includes(o.status) && !o.courier_id
@@ -164,7 +165,18 @@ function OrderCard({ o, business, own, onChange }) {
       </div>
 
       <div className="small">
-        {!needsProof(o.payment_method) ? (
+        {online ? (
+          <>
+            {payLabel(o.payment_method)} ·{' '}
+            {o.payment_status === 'validado' ? (
+              <b className="ok-text">pagado en línea ✔</b>
+            ) : o.payment_status === 'rechazado' ? (
+              <b className="error">pago reversado</b>
+            ) : (
+              <b>esperando que el cliente pague{o.mp_status ? ` (${o.mp_status})` : ''}</b>
+            )}
+          </>
+        ) : !needsProof(o.payment_method) ? (
           <>{payLabel(o.payment_method)} · se cobra al entregar</>
         ) : (
           <>
@@ -257,7 +269,7 @@ function OrderCard({ o, business, own, onChange }) {
             ✔ Validar pago y aceptar
           </button>
         )}
-        {o.status === 'pendiente' && !needsProof(o.payment_method) && (
+        {o.status === 'pendiente' && !needsProof(o.payment_method) && (!online || o.payment_status === 'validado') && (
           <button className="btn ok sm" disabled={busy} onClick={() => act({ status: 'aceptado', ...acceptFields })}>
             ✔ Aceptar
           </button>
@@ -279,6 +291,9 @@ function OrderCard({ o, business, own, onChange }) {
 
       {rejecting && (
         <div className="reject-box">
+          {online && o.payment_status === 'validado' && (
+            <p className="small error">Este pedido ya fue pagado por Mercado Pago: si lo rechazas, recuerda devolver el dinero al cliente.</p>
+          )}
           <input className="input" placeholder="Motivo (opcional)" value={reason} onChange={(e) => setReason(e.target.value)} />
           <div className="actions">
             <button
