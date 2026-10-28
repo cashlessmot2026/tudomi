@@ -74,9 +74,20 @@ Commits previos (27 oct): imágenes de Drive/Dropbox, detalle de pedidos en el a
 - **Interruptor de domiciliarios externos (migración 011):** ajuste `external_couriers` (por defecto encendido), RPC `admin_set_external_couriers`, expuesto en `payment_config`. Apagado: `available_orders` y `take_order` quedan cerrados, el negocio no puede enviar a externos, no se registran externos nuevos (los propios sí) y los pedidos publicados sin tomar vuelven al negocio. UI: tarjeta en Ajustes del admin, aviso en el panel del negocio y "Registro cerrado" en la app del domiciliario. Commit `1bb53b3`.
 - **Pendiente del usuario:** aplicar las migraciones 010 y 011 en el SQL Editor de Supabase (el código ya está en `main`). Luego probar el enlace en incógnito, el filtro del admin y el interruptor.
 
+## 5d. Checks, planes, servicios, tipos de negocio (28 oct 2026)
+
+- **Fix 012:** `grant execute on function _external_on() to anon, authenticated` (los triggers de la 011 corren con el rol del usuario). Commit `214bb69`.
+- **Checks animados:** ahora también salen al hacer un pedido ("¡Pedido enviado!", vía `location.state` hacia `OrderDetail`) y al tomar un servicio ("¡Servicio tomado!"). El de entrega además se dispara cuando el pedido pasa a `entregado` en `loadMine`. Si el de entrega sigue sin salir, revisar qué ve el usuario al validar el código. Mapa 🏪 del negocio con "Cómo llegar" (Google Maps) en la tarjeta del domiciliario. Commit `37c68a8`.
+- **Plan Comisión + servicios (migración 013):** plan de $1.000/mes + 10% por venta (`subscription_plans.commission_pct`, link de pago opcional). Tabla `business_subscriptions` (plan por negocio, ciclos de 30 días desde `started_on`, cobro mes vencido) y trigger `orders_plan_commission` (aplica el % del plan; MP nunca baja de 10%). Admin: en cada tarjeta de negocio asigna/pausa el plan, ve ciclo, corte y "por cobrar"; `my_billing` para el negocio. No guarda qué ciclos ya se pagaron.
+- **Servicios por negocio:** `services` (externos, publicidad_app, publicidad_push) con precio y link editables en Ajustes del admin; `business_services` los activa el admin por negocio; el negocio ve botón "Activar / pagar" en su pestaña Planes. **Bloqueo real:** sin el servicio `externos` el negocio no puede publicar pedidos para externos (los negocios existentes quedaron con él activo). Publicidad en app y push son solo marcas por ahora.
+- **Domiciliarios:** campo obligatorio "pantallazo de tu usuario en otra plataforma (Rappi, etc.)" (`couriers.other_platform_url`), visible en la revisión del admin. Commit `da6e2e9`.
+- **Tipos de negocio (migraciones 014 y 015):** restaurante, minimarket, tecnología, floristería, ferretería, tienda, ropa, taller de vehículos, alquiler (elementos varios), rentas cortas y otro. Cada tipo tiene campos propios en `src/lib/productFields.js` (guardados en `products.details`, jsonb) que ve el cliente. Ropa: el cliente elige talla y color. Rentas cortas: precio por noche, fechas de entrada/salida, huéspedes, validación de noches mín/máx y capacidad; las noches van como cantidad del pedido. Commits `7e07c83` y `6bd5722`.
+- **Limitaciones de rentas cortas:** limpieza y depósito se muestran pero no se suman al total; el pedido sigue el flujo de domicilio (se finaliza con el código de un domiciliario). Siguiente paso sugerido: que el anfitrión confirme y cierre la reserva sin domiciliario.
+- **Pendiente del usuario:** aplicar en el SQL Editor las migraciones que falten entre 010 y 015 (según lo que ya haya ejecutado); la 014 y la 015 reemplazan la regla de tipos, se pueden repetir sin problema.
+
 ## 5. Estado de la base de datos
 
-Migraciones aplicadas en Supabase: 002 a 009 (la 009 el 28 oct 2026). **010 y 011 están en el repo pero hay que aplicarlas a mano en el SQL Editor.**
+Migraciones aplicadas en Supabase: 002 a 009 (la 009 el 28 oct 2026). **010 a 015 están en el repo y se aplican a mano en el SQL Editor (el usuario confirmó la 013; verificar 014 y 015).**
 
 Edge Functions desplegadas: `mp-create-preference`, `mp-webhook` (sin verificación JWT), `rain-check`.
 
