@@ -1,0 +1,87 @@
+# Historial de trabajo — TuDomi (27–28 oct 2026)
+
+Resumen de la conversación con Claude para retomar el trabajo después. Proyecto Supabase: `xvyldsknuacajphzeivc` (org *tpresentacion2026*, proyecto *tudomi*). Repo: `cashlessmot2026/tudomi` (GitHub Pages despliega desde `main`).
+
+---
+
+## 1. Punto de partida
+
+Commits previos (27 oct): imágenes de Drive/Dropbox, detalle de pedidos en el admin, GPS de entrega, ubicación en tiempo real del domiciliario, URLs separadas por app, domiciliarios propios del negocio, pagos con datáfono/QR/link, código de retiro y código de entrega oculto al domiciliario.
+
+## 2. Mercado Pago (Checkout Pro)
+
+**Pedido:** botón de pago con Mercado Pago (tarjeta crédito, débito, PSE) que solo el admin activa/desactiva; planes de suscripción opcionales para negocios con valores editables.
+
+**Hecho:**
+- Migración `006_mercadopago_y_suscripciones.sql`: método `mercadopago`, interruptor `mp_enabled`, columnas `mp_preference_id / mp_payment_id / mp_status`, funciones `mp_set_preference` y `mp_apply_payment` (solo service_role), tabla `subscription_plans` con 3 planes: 150.000, 100.000 y 50.000 (links de preapproval de MP).
+- Edge Functions:
+  - `mp-create-preference`: crea la preferencia y devuelve el link de pago.
+  - `mp-webhook`: valida firma `x-signature` (si existe `MP_WEBHOOK_SECRET`), consulta el pago a la API y marca el pedido como pagado. Responde 200 si el pago no existe (notificaciones simuladas).
+- Frontend: opción 🟦 Mercado Pago en el carrito, botón de reintento en el detalle del pedido, estado del pago en el negocio, pestaña ⭐ Planes en el negocio, interruptor y editor de planes en el admin.
+- App de Mercado Pago creada: **TuDomi Checkout Pro**, número `5846027985257358` (cuenta *cashless colombia*). Webhook (prueba y producción) → `https://xvyldsknuacajphzeivc.supabase.co/functions/v1/mp-webhook`, evento **Pagos**.
+- ⚠️ **No tocar** la app `3317280669084800`: su webhook es de otro proyecto de Supabase (`ieoycdkamtmiouytwtbm`).
+
+**Hecho por el usuario:** verificación JWT apagada en `mp-webhook`, secreto `MP_ACCESS_TOKEN` (producción). El usuario confirmó que Mercado Pago **ya funciona**.
+
+**Pendiente / notas:**
+- Confirmar que `MP_WEBHOOK_SECRET` esté configurado (en la última revisión el webhook aceptaba avisos sin firma).
+- "Algo salió mal" al pagar = casi seguro pagar con la misma cuenta que cobra. Probar en incógnito u otro dispositivo.
+- PSE no aparecía: no lo bloquea el código. Posibles causas: sesión del vendedor abierta, PSE no habilitado en la cuenta o monto bajo. No se llegó a consultar los métodos habilitados (MP pidió QR de verificación).
+- El dinero de MP llega a la cuenta de la plataforma; la plataforma liquida a negocios y domiciliarios.
+
+## 3. Alertas, propinas, comisiones, lluvia y analítica
+
+**Pedido:** check animado (Lottie) al entregar y al confirmar pago por webhook; alertas de voz y sonido; analítica y consolidados; comisión opcional del superadmin; 10% fijo en pagos MP sobre venta neta; propina voluntaria; estadísticas del domiciliario; recargo del 50% por lluvia (manual o automático).
+
+**Hecho:**
+- Migración `007_propinas_comisiones_lluvia_analitica.sql`: columnas `tip`, `rain_surcharge`, `commission_pct`, `commission` en `orders`; ajustes `commission_enabled`, `commission_pct`, `rain_mode`, `rain_pct`, `rain_auto`; funciones `admin_get_settings`, `admin_set_settings`, `admin_analytics`, `business_analytics`, `courier_stats`, `_sales_summary`; `available_orders` devuelve domicilio, lluvia y propina.
+- Migración `008_cron_lluvia.sql`: `pg_cron` job `tudomi-rain-check` cada 15 min → Edge Function `rain-check` (Open-Meteo, sin llave; solo actúa si `rain_auto` está activo).
+- Reglas:
+  - Comisión guardada en cada pedido al crearlo, sobre el subtotal (sin domicilio ni propina). MP = 10% siempre; otros métodos = % del superadmin si lo activa.
+  - Ganancia del domiciliario = domicilio (con recargo por lluvia) + propina.
+  - Ventas = pedidos entregados, agrupados por día en hora de Colombia.
+- Frontend:
+  - `src/lib/alerts.js`: voz ("Tienes un nuevo servicio", "Pedido recibido", "Has recibido un pago de X pesos") y sonido.
+  - `src/components/SuccessCheck.jsx`: check Lottie (`lottie.host/embed/adf97339-…/AkKsIdNxRM.lottie`).
+  - Domiciliario: alertas, "Ganas $X" en cada pedido, check al entregar, pestaña 📊 Ganancias.
+  - Negocio: voz al recibir pedido y al confirmarse pago MP, pestaña 📊 Ventas (saldo con la plataforma).
+  - Cliente: propina voluntaria, recargo por lluvia visible, check al aprobarse el pago.
+  - Admin: pestaña 📊 Analítica (por día, liquidación por negocio y por domiciliario); Ajustes de comisión y lluvia (manual/automático, "Revisar clima ahora").
+- Nota: los navegadores no reproducen voz/sonido hasta que el usuario toca la pantalla una vez.
+- No probado aún en dispositivo real: voces, sonido y check animado.
+
+## 4. Publicidad (carrusel)
+
+**Pedido:** banner tipo slider automático con promociones de negocios que pagan por pautar, activado por el superadmin.
+
+**Hecho:**
+- Migración `009_publicidad.sql`: tabla `ads` (negocio, título, texto, botón, imagen, enlace externo, fechas `starts_on`/`ends_on`, valor pagado, orden, clics), interruptor `ads_enabled`, `ads_on()`, `ad_click()`, `admin_list_ads`, `admin_save_ad`, `admin_delete_ad`, `admin_set_ads_enabled`.
+- `src/components/AdsCarousel.jsx` en el inicio de clientes: avanza cada 4,5 s, deslizable, se pausa al tocar; abre la tienda o el enlace externo y cuenta el clic.
+- Admin → 📣 Publicidad: crear/editar anuncios, estados (Al aire, Programado, Vencido, Pausado) y clics.
+- Estado: aplicado y publicado; carrusel **apagado** y sin anuncios hasta que el superadmin los cree.
+
+## 5b. Ajustes visuales (28 oct 2026)
+
+- Botones verdes (`.btn.ok` y botones principales de la app del domiciliario) y pestaña activa del menú del domiciliario: texto negro por contraste. Commit `4a4188e`.
+- Check de éxito: se probó Lottie con `dotlottie-wc` (commit `4166daa`) y luego se reemplazó por un check **propio en SVG + CSS** (círculo que se dibuja, check trazado, rebote y destellos), sin fondo blanco ni dependencias externas. Archivos: `src/components/SuccessCheck.jsx` y estilos `.anim-check` / `.ac-*` en `src/styles.css`. Commit `44d091b`, publicado en `main`.
+- Pendiente: ver el check nuevo en pantalla y ajustarlo si el usuario quiere otro estilo (no se había visto la imagen de referencia que mencionó).
+
+## 5. Estado de la base de datos
+
+Migraciones aplicadas en Supabase: 002 a 009 (la 009 el 28 oct 2026).
+
+Edge Functions desplegadas: `mp-create-preference`, `mp-webhook` (sin verificación JWT), `rain-check`.
+
+Secretos: `MP_ACCESS_TOKEN` (configurado por el usuario), `MP_WEBHOOK_SECRET` (verificar).
+
+## 6. Notas técnicas
+
+- El PC tiene poca RAM libre: `npm run build` local falla por memoria. Se valida con `esbuild` y con la compilación de GitHub Actions.
+- Para aplicar SQL se usó el SQL Editor del dashboard; para desplegar funciones, el editor de Edge Functions (al actualizar pide una confirmación "Deploy updates").
+- Claude no puede ingresar llaves, tokens ni datos de pago, ni desactivar la verificación JWT; esos pasos los hace el usuario.
+
+## 7. Ideas pendientes
+
+- Consultar los métodos de pago habilitados en MP (PSE) cuando se pueda escanear el QR de verificación.
+- Probar en celular: voces, el check nuevo y carrusel con un anuncio real.
+- Opcional: modelo Marketplace de MP para que cada negocio reciba su dinero directo.
