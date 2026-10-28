@@ -47,6 +47,8 @@ Deno.serve(async (req) => {
   const r = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(dataId)}`, {
     headers: { Authorization: `Bearer ${Deno.env.get('MP_ACCESS_TOKEN')}` },
   })
+  // Pago inexistente (p. ej. "Simular notificación" con un id inventado): se confirma para que MP no reintente
+  if (r.status === 404) return new Response('payment not found')
   if (!r.ok) {
     console.error('MP payment fetch error', r.status, await r.text())
     return new Response('retry', { status: 500 })
