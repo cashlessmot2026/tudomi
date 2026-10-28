@@ -126,7 +126,7 @@ function BusinessInner() {
       {tab === 'pedidos' && <BusinessOrders business={b} />}
       {tab === 'productos' && <BusinessProducts business={b} />}
       {tab === 'domis' && <BusinessCouriers business={b} />}
-      {tab === 'planes' && <BusinessPlans />}
+      {tab === 'planes' && <BusinessPlans business={b} />}
       {tab === 'ventas' && <BusinessSales business={b} />}
       {tab === 'ajustes' && (
         <div className="narrow">

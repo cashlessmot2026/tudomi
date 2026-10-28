@@ -20,7 +20,10 @@ export default function BusinessOrders({ business }) {
   const [list, setList] = useState(null)
   const [filter, setFilter] = useState('activos')
   const [own, setOwn] = useState([])
-  const { external_couriers: externalOn } = usePaymentConfig()
+  const { external_couriers: platformExternal } = usePaymentConfig()
+  const [hasExt, setHasExt] = useState(false)
+  // Externos disponibles: interruptor del admin encendido y servicio activo en este negocio
+  const externalOn = platformExternal && hasExt
   const [paid, setPaid] = useState(null)
   const listRef = useRef(null)
   listRef.current = list
@@ -41,6 +44,13 @@ export default function BusinessOrders({ business }) {
       .eq('active', true)
       .order('full_name')
     setOwn(c || [])
+    const { data: sv } = await supabase
+      .from('business_services')
+      .select('service_key')
+      .eq('business_id', business.id)
+      .eq('service_key', 'externos')
+      .eq('active', true)
+    setHasExt(!!sv?.length)
   }, [business.id])
 
   useEffect(() => {
@@ -269,7 +279,12 @@ function OrderCard({ o, business, own, externalOn, onChange }) {
             </div>
           )}
           {!externalOn ? (
-            !own.length && <p className="muted small">🛵 Registra a tus domiciliarios en la pestaña "Domiciliarios" para poder enviar tus pedidos.</p>
+            !own.length && (
+              <p className="muted small">
+                🛵 Registra a tus domiciliarios en la pestaña "Domiciliarios"
+                {platformExternal ? ' o activa el servicio de domiciliarios externos en "Planes"' : ''} para poder enviar tus pedidos.
+              </p>
+            )
           ) : o.dispatch === 'externo' ? (
             <p className="muted small">⏳ Publicado para domiciliarios externos. Esperando que uno lo tome…</p>
           ) : (

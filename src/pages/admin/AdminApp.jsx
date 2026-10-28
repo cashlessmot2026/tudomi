@@ -139,6 +139,7 @@ function AdminPanel({ pass, stats, refreshStats, logout }) {
             <MercadoPagoSwitch pass={pass} />
             <PlatformSettings pass={pass} />
             <Plans pass={pass} />
+            <Services pass={pass} />
             <ChangePass pass={pass} onDone={logout} />
           </div>
         )}
@@ -147,7 +148,7 @@ function AdminPanel({ pass, stats, refreshStats, logout }) {
   )
 }
 
-const DOC_LABELS = { soat_url: 'SOAT', tecnomecanica_url: 'Tecnomecánica', license_url: 'Licencia', id_card_url: 'Cédula' }
+const DOC_LABELS = { soat_url: 'SOAT', tecnomecanica_url: 'Tecnomecánica', license_url: 'Licencia', id_card_url: 'Cédula', other_platform_url: 'Otra plataforma' }
 
 function Couriers({ pass, onChange }) {
   const [list, setList] = useState(null)
@@ -212,7 +213,7 @@ function Couriers({ pass, onChange }) {
             )}
             {c.kind !== 'propio' && (
             <div className="docs">
-              {Object.entries(DOC_LABELS).map(([k, label]) => (
+              {Object.entries(DOC_LABELS).filter(([k]) => c[k]).map(([k, label]) => (
                 <a key={k} href={c[k]} target="_blank" rel="noreferrer" className="doc">
                   {/\.pdf($|\?)/i.test(c[k]) ? <div className="img-fallback">📄</div> : <Img src={c[k]} alt={label} fallback="📄" />}
                   <span>{label}</span>
@@ -246,18 +247,38 @@ function Couriers({ pass, onChange }) {
   )
 }
 
+const SERVICE_ICON = { externos: '🛵', publicidad_app: '📣', publicidad_push: '🔔' }
+
 function Businesses({ pass }) {
   const [list, setList] = useState(null)
   const [city, setCity] = useState('')
+  const [plans, setPlans] = useState([])
+  const [services, setServices] = useState([])
+  const [billing, setBilling] = useState({})
+  const [err, setErr] = useState('')
   const load = useCallback(async () => {
-    const { data } = await supabase.rpc('admin_list_businesses', { p_pass: pass })
-    setList(data || [])
+    const [b, pl, sv, bi] = await Promise.all([
+      supabase.rpc('admin_list_businesses', { p_pass: pass }),
+      supabase.rpc('admin_list_plans', { p_pass: pass }),
+      supabase.rpc('admin_list_services', { p_pass: pass }),
+      supabase.rpc('admin_business_billing', { p_pass: pass }),
+    ])
+    setList(b.data || [])
+    setPlans(pl.data || [])
+    setServices(sv.data || [])
+    setBilling(Object.fromEntries((bi.data || []).map((x) => [x.business_id, x])))
   }, [pass])
   useEffect(() => {
     load()
   }, [load])
   const toggle = async (b) => {
     await supabase.rpc('admin_set_business_active', { p_pass: pass, p_id: b.id, p_active: !b.active })
+    load()
+  }
+  const run = async (fn, args) => {
+    setErr('')
+    const { error } = await supabase.rpc(fn, { p_pass: pass, ...args })
+    if (error) return setErr(error.message)
     load()
   }
   if (list === null) return <Spinner />
@@ -277,27 +298,95 @@ function Businesses({ pass }) {
           <option value="__none">Sin ciudad ({list.filter((b) => !b.city).length})</option>
         </select>
       </div>
+      <ErrorText>{err}</ErrorText>
       {!shown.length && <Empty icon="🏪" text="No hay negocios en esta ciudad" />}
-    <div className="orders-grid">
-      {shown.map((b) => (
-        <div key={b.id} className={`card pad ${b.active ? '' : 'off'}`}>
-          <div className="row-between">
-            <Img src={b.logo_url} alt="" className="biz-logo" fallback="🏪" />
-            <div className="grow">
-              <b>{b.name}</b>
-              <div className="muted small">
-                {catLabel(b.category)} · {b.phone}
+      <div className="orders-grid">
+        {shown.map((b) => {
+          const info = billing[b.id] || {}
+          const bl = info.billing
+          const on = info.services || []
+          const planOn = bl?.active
+          return (
+            <div key={b.id} className={`card pad ${b.active ? '' : 'off'}`}>
+              <div className="row-between">
+                <Img src={b.logo_url} alt="" className="biz-logo" fallback="🏪" />
+                <div className="grow">
+                  <b>{b.name}</b>
+                  <div className="muted small">
+                    {catLabel(b.category)} · {b.phone}
+                  </div>
+                  <div className="small">{b.city ? `🏙️ ${b.city}` : <span className="pill bad">Sin ciudad</span>}</div>
+                </div>
               </div>
-              <div className="small">{b.city ? `🏙️ ${b.city}` : <span className="pill bad">Sin ciudad</span>}</div>
+              <p className="small muted">{b.address}</p>
+
+              <div className="ticket-sec small">
+                <b>⭐ Plan</b>
+                <div className="dispatch-row">
+                  <select
+                    className="input"
+                    value={bl?.plan_id || ''}
+                    onChange={(e) => run('admin_set_business_plan', { p_business: b.id, p_plan: e.target.value || null, p_active: true })}
+                  >
+                    <option value="">Sin plan</option>
+                    {plans.map((pl) => (
+                      <option key={pl.id} value={pl.id}>
+                        {pl.name} · {money(pl.price)}
+                        {Number(pl.commission_pct) > 0 ? ` + ${Number(pl.commission_pct)}%` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {bl && (
+                    <button className={`btn sm ${planOn ? 'danger' : 'ok'}`} onClick={() => run('admin_set_business_plan', { p_business: b.id, p_plan: bl.plan_id, p_active: !planOn })}>
+                      {planOn ? 'Pausar' : 'Activar'}
+                    </button>
+                  )}
+                </div>
+                {planOn && Number(bl.commission_pct) > 0 && (
+                  <div>
+                    <span className="pill ok">💼 {Number(bl.commission_pct)}% de cada venta</span> <span className="pill">{money(bl.price)} / mes</span>
+                  </div>
+                )}
+                {planOn && (
+                  <div className="muted">
+                    Ciclo {bl.cycle_start} → {bl.cycle_end} · ventas {money(bl.cycle.sales)} · comisión {money(bl.cycle.commission)}
+                    <br />
+                    Corte y cobro: <b>{bl.cycle_cut}</b>
+                    {bl.due && (
+                      <>
+                        {' '}
+                        · <b>Por cobrar (ciclo {bl.due.start} → {bl.due.end}): {money(bl.due.total)}</b>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="ticket-sec small">
+                <b>🧩 Servicios</b>
+                <div className="chips">
+                  {services.map((sv) => {
+                    const active = on.includes(sv.key)
+                    return (
+                      <button
+                        key={sv.key}
+                        className={`chip ${active ? 'active' : ''}`}
+                        onClick={() => run('admin_set_business_service', { p_business: b.id, p_key: sv.key, p_active: !active })}
+                      >
+                        {SERVICE_ICON[sv.key] || '🧩'} {sv.name} {active ? '✔' : ''}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <button className={`btn sm ${b.active ? 'danger' : 'ok'}`} onClick={() => toggle(b)}>
+                {b.active ? 'Desactivar' : 'Activar'}
+              </button>
             </div>
-          </div>
-          <p className="small muted">{b.address}</p>
-          <button className={`btn sm ${b.active ? 'danger' : 'ok'}`} onClick={() => toggle(b)}>
-            {b.active ? 'Desactivar' : 'Activar'}
-          </button>
-        </div>
-      ))}
-    </div>
+          )
+        })}
+      </div>
     </>
   )
 }
@@ -503,7 +592,7 @@ function MercadoPagoSwitch({ pass }) {
   )
 }
 
-const EMPTY_PLAN = { name: '', price: '', period: 'mes', details: '', checkout_url: '', active: true, sort: 0 }
+const EMPTY_PLAN = { name: '', price: '', period: 'mes', details: '', checkout_url: '', commission_pct: 0, active: true, sort: 0 }
 
 function Plans({ pass }) {
   const [list, setList] = useState(null)
@@ -521,7 +610,7 @@ function Plans({ pass }) {
   const save = async (e) => {
     e.preventDefault()
     setErr('')
-    const { error } = await supabase.rpc('admin_save_plan', { p_pass: pass, p_plan: { ...edit, price: Number(edit.price || 0) } })
+    const { error } = await supabase.rpc('admin_save_plan', { p_pass: pass, p_plan: { ...edit, price: Number(edit.price || 0), commission_pct: Number(edit.commission_pct || 0) } })
     if (error) return setErr(error.message)
     setEdit(null)
     load()
@@ -550,7 +639,7 @@ function Plans({ pass }) {
       {list?.map((p) => (
         <div key={p.id} className={`row-between plan-row ${p.active ? '' : 'off'}`}>
           <div className="grow">
-            <b>{p.name}</b> · {money(p.price)} / {p.period} {!p.active && <span className="pill">oculto</span>}
+            <b>{p.name}</b> · {money(p.price)} / {p.period} {Number(p.commission_pct) > 0 && <span className="pill ok">+{Number(p.commission_pct)}% por venta</span>} {!p.active && <span className="pill">oculto</span>}
             {p.details && <div className="muted small">{p.details}</div>}
           </div>
           <button className="btn ghost sm" onClick={() => setEdit(p)}>
@@ -576,8 +665,11 @@ function Plans({ pass }) {
             <Field label="Detalles">
               <textarea className="input" rows={4} value={edit.details || ''} onChange={set('details')} placeholder="Qué incluye el plan" />
             </Field>
-            <Field label="Link de suscripción de Mercado Pago">
-              <input className="input" type="url" required value={edit.checkout_url} onChange={set('checkout_url')} placeholder="https://www.mercadopago.com.co/subscriptions/checkout?preapproval_plan_id=…" />
+            <Field label="Comisión por venta (%)" hint="0 = sin comisión. Se cobra sobre el subtotal de cada pedido entregado, mes vencido con corte cada 30 días.">
+              <input className="input" type="number" min={0} max={100} step={0.5} value={edit.commission_pct ?? 0} onChange={set('commission_pct')} />
+            </Field>
+            <Field label="Link de suscripción de Mercado Pago (opcional)">
+              <input className="input" type="url" value={edit.checkout_url || ''} onChange={set('checkout_url')} placeholder="https://www.mercadopago.com.co/subscriptions/checkout?preapproval_plan_id=…" />
             </Field>
             <Field label="Orden">
               <input className="input" type="number" value={edit.sort} onChange={set('sort')} />
@@ -587,6 +679,77 @@ function Plans({ pass }) {
             </label>
             <ErrorText>{err}</ErrorText>
             <button className="btn block">Guardar plan</button>
+          </form>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+function Services({ pass }) {
+  const [list, setList] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const [err, setErr] = useState('')
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc('admin_list_services', { p_pass: pass })
+    if (error) setErr(error.message)
+    setList(data || [])
+  }, [pass])
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const save = async (e) => {
+    e.preventDefault()
+    setErr('')
+    const { error } = await supabase.rpc('admin_save_service', { p_pass: pass, p: { ...edit, price: Number(edit.price || 0) } })
+    if (error) return setErr(error.message)
+    setEdit(null)
+    load()
+  }
+  const set = (k) => (e) => setEdit({ ...edit, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
+
+  return (
+    <div className="card pad narrow">
+      <h3>🧩 Servicios para negocios</h3>
+      <p className="muted small">
+        Fija el precio y el link de pago de cada servicio. El negocio lo ve en su pestaña ⭐ Planes con un botón para pagar; tú lo activas en la tarjeta del
+        negocio. Sin el servicio "Domiciliarios externos" activo, el negocio no puede publicar pedidos para externos.
+      </p>
+      <ErrorText>{err}</ErrorText>
+      {list === null && <Spinner />}
+      {list?.map((sv) => (
+        <div key={sv.key} className={`row-between plan-row ${sv.active ? '' : 'off'}`}>
+          <div className="grow">
+            <b>
+              {SERVICE_ICON[sv.key]} {sv.name}
+            </b>{' '}
+            · {money(sv.price)} / {sv.period} {!sv.active && <span className="pill">oculto</span>}
+            {!sv.checkout_url && <span className="pill bad">sin link de pago</span>}
+            {sv.details && <div className="muted small">{sv.details}</div>}
+          </div>
+          <button className="btn ghost sm" onClick={() => setEdit(sv)}>
+            ✏️
+          </button>
+        </div>
+      ))}
+      {edit && (
+        <Modal title={`Editar: ${edit.name}`} onClose={() => setEdit(null)}>
+          <form className="form" onSubmit={save}>
+            <Field label="Valor (COP / mes)">
+              <input className="input" type="number" min={0} step={1000} required value={edit.price} onChange={set('price')} />
+            </Field>
+            <Field label="Detalles">
+              <textarea className="input" rows={3} value={edit.details || ''} onChange={set('details')} />
+            </Field>
+            <Field label="Link de pago (Mercado Pago, Wompi, etc.)">
+              <input className="input" type="url" value={edit.checkout_url || ''} onChange={set('checkout_url')} placeholder="https://…" />
+            </Field>
+            <label className="check">
+              <input type="checkbox" checked={!!edit.active} onChange={set('active')} /> Visible para los negocios
+            </label>
+            <ErrorText>{err}</ErrorText>
+            <button className="btn block">Guardar</button>
           </form>
         </Modal>
       )}

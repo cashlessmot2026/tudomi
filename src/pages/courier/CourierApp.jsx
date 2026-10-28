@@ -156,6 +156,7 @@ const DOCS = [
   ['tecnomecanica_url', 'Revisión tecnomecánica'],
   ['license_url', 'Licencia de conducción'],
   ['id_card_url', 'Cédula del conductor'],
+  ['other_platform_url', 'Pantallazo de tu usuario en otra plataforma de domicilios (Rappi, etc.)'],
 ]
 
 function CourierRegister({ existing, onSaved }) {
