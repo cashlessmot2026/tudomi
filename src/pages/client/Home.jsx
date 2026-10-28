@@ -49,11 +49,7 @@ export default function Home() {
       {list === null ? (
         <Spinner />
       ) : shown.length === 0 ? (
-        <Empty icon="🏪" text="Aún no hay negocios aquí. ¿Tienes uno?">
-          <Link className="btn" to="/negocio">
-            Publicar mi negocio
-          </Link>
-        </Empty>
+        <Empty icon="🏪" text="Aún no hay negocios en esta categoría" />
       ) : (
         <div className="grid">
           {shown.map((b) => (

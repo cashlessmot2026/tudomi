@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import AddressPicker from '../../components/AddressPicker'
 import { ErrorText, Field, InstallButton, PushButton } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
@@ -54,12 +53,6 @@ export default function Profile() {
       <div className="card pad stack">
         <PushButton app="cliente" />
         <InstallButton />
-        <Link className="btn ghost sm" to="/negocio">
-          🏪 ¿Tienes un negocio? Publica tus productos
-        </Link>
-        <Link className="btn ghost sm" to="/domiciliario">
-          🛵 Quiero ser domiciliario
-        </Link>
         <button className="btn danger sm" onClick={signOut}>
           Cerrar sesión
         </button>
