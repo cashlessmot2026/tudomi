@@ -1,14 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Empty, ErrorText, Field, Img, Modal, Spinner } from '../../components/ui'
 import { imageUrl, priceLabel } from '../../lib/format'
+import { SECTION_HINTS_BY_CATEGORY, cleanDetails, detailRows, fieldsFor } from '../../lib/productFields'
 import { supabase } from '../../lib/supabase'
 import ImportProducts from './ImportProducts'
-
-const SECTION_HINTS = {
-  restaurante: ['Pizzas', 'Hamburguesas', 'Bebidas', 'Postres', 'Combos'],
-  minimarket: ['Verduras', 'Frutas', 'Tubérculos', 'Carnes', 'Lácteos', 'Despensa', 'Aseo', 'Bebidas'],
-  tecnologia: ['Celulares', 'Accesorios', 'Audio', 'Computadores', 'Cargadores'],
-}
 
 export default function BusinessProducts({ business }) {
   const [list, setList] = useState(null)
@@ -66,6 +61,11 @@ export default function BusinessProducts({ business }) {
                 {p.perishable && <span className="pill">🥬 Perecedero</span>}
                 {p.sale_type === 'peso' && <span className="pill">⚖️ Por {p.weight_unit}</span>}
                 {p.is_pizza && <span className="pill">🍕 Mitad y mitad</span>}
+                {detailRows(business.category, p.details).slice(0, 3).map((r) => (
+                  <span key={r.key} className="pill">
+                    {r.label}: {r.value}
+                  </span>
+                ))}
               </div>
               <div className="actions">
                 <button className="btn ghost sm" onClick={() => setEdit(p)}>
@@ -111,12 +111,20 @@ function ProductForm({ business, initial, onClose, onSaved }) {
     is_pizza: false,
     available: true,
     ...(initial || {}),
+    details: { ...(initial?.details || {}) },
   }))
+  const rent = business.category === 'renta_corta'
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
 
   // Perecederos (verduras, tubérculos…) se venden por peso por defecto
+  const setDetail = (k, v) => setF((prev) => ({ ...prev, details: { ...prev.details, [k]: v } }))
+  const toggleMulti = (k, opt) => {
+    const cur = f.details[k] || []
+    setDetail(k, cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt])
+  }
+
   const setPerishable = (e) => {
     const v = e.target.checked
     setF({ ...f, perishable: v, sale_type: v ? 'peso' : f.sale_type, weight_unit: f.weight_unit || 'lb' })
@@ -134,8 +142,10 @@ function ProductForm({ business, initial, onClose, onSaved }) {
       section: f.section.trim() || null,
       price: Number(f.price),
       perishable: f.perishable,
-      sale_type: f.sale_type,
-      weight_unit: f.sale_type === 'peso' ? f.weight_unit || 'lb' : null,
+      // Rentas cortas: el precio es por noche
+      sale_type: rent ? 'unidad' : f.sale_type,
+      weight_unit: !rent && f.sale_type === 'peso' ? f.weight_unit || 'lb' : null,
+      details: cleanDetails(business.category, f.details),
       is_pizza: business.category === 'restaurante' && f.is_pizza,
       available: f.available,
     }
@@ -161,7 +171,7 @@ function ProductForm({ business, initial, onClose, onSaved }) {
         <Field label="Sección / categoría">
           <input className="input" list="sections" value={f.section || ''} onChange={set('section')} placeholder="Ej: Pizzas, Verduras, Celulares" />
           <datalist id="sections">
-            {(SECTION_HINTS[business.category] || []).map((s) => (
+            {(SECTION_HINTS_BY_CATEGORY[business.category] || []).map((s) => (
               <option key={s} value={s} />
             ))}
           </datalist>
@@ -174,6 +184,7 @@ function ProductForm({ business, initial, onClose, onSaved }) {
           </label>
         )}
 
+        {!rent && (
         <Field label="¿Cómo se vende?">
           <div className="pay-methods">
             <button type="button" className={`pay ${f.sale_type === 'unidad' ? 'active' : ''}`} onClick={() => setF({ ...f, sale_type: 'unidad' })}>
@@ -184,7 +195,8 @@ function ProductForm({ business, initial, onClose, onSaved }) {
             </button>
           </div>
         </Field>
-        {f.sale_type === 'peso' && (
+        )}
+        {!rent && f.sale_type === 'peso' && (
           <Field label="Unidad de peso">
             <div className="pay-methods">
               {['lb', 'kg'].map((u) => (
@@ -195,9 +207,55 @@ function ProductForm({ business, initial, onClose, onSaved }) {
             </div>
           </Field>
         )}
-        <Field label={f.sale_type === 'peso' ? `Precio por ${f.weight_unit} (COP)` : 'Precio (COP)'}>
+        <Field label={rent ? 'Precio por noche (COP)' : f.sale_type === 'peso' ? `Precio por ${f.weight_unit} (COP)` : 'Precio (COP)'}>
           <input className="input" required type="number" min="0" step="50" value={f.price} onChange={set('price')} />
         </Field>
+
+        <div className="ticket-sec">
+          <b>{rent ? '🏠 Datos del alojamiento' : '📋 Detalles del producto'}</b>
+          {fieldsFor(business.category).map((fd) => (
+            <div key={fd.key}>
+              {fd.type === 'check' ? (
+                <label className="check">
+                  <input type="checkbox" checked={!!f.details[fd.key]} onChange={(e) => setDetail(fd.key, e.target.checked)} />
+                  <span>{fd.label}</span>
+                </label>
+              ) : fd.type === 'multi' ? (
+                <Field label={fd.label}>
+                  <div className="chips">
+                    {fd.options.map((o) => (
+                      <button type="button" key={o} className={`chip ${(f.details[fd.key] || []).includes(o) ? 'active' : ''}`} onClick={() => toggleMulti(fd.key, o)}>
+                        {o}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              ) : fd.type === 'select' ? (
+                <Field label={fd.label}>
+                  <select className="input" value={f.details[fd.key] || ''} onChange={(e) => setDetail(fd.key, e.target.value)}>
+                    <option value="">—</option>
+                    {fd.options.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : (
+                <Field label={fd.unit ? `${fd.label} (${fd.unit})` : fd.label}>
+                  <input
+                    className="input"
+                    type={fd.type === 'number' ? 'number' : 'text'}
+                    min={fd.type === 'number' ? 0 : undefined}
+                    value={f.details[fd.key] ?? ''}
+                    placeholder={fd.placeholder}
+                    onChange={(e) => setDetail(fd.key, e.target.value)}
+                  />
+                </Field>
+              )}
+            </div>
+          ))}
+        </div>
 
         {business.category === 'restaurante' && (
           <label className="check">

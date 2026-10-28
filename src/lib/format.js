@@ -15,8 +15,10 @@ export const CATEGORIES = [
   { id: 'floristeria', label: 'Floristerías', icon: '💐' },
   { id: 'ferreteria', label: 'Ferreterías', icon: '🔧' },
   { id: 'tienda', label: 'Tiendas', icon: '🛍️' },
+  { id: 'ropa', label: 'Ropa', icon: '👕' },
   { id: 'taller', label: 'Talleres de vehículos', icon: '🚗' },
   { id: 'alquiler', label: 'Alquiler (elementos varios)', icon: '🎪' },
+  { id: 'renta_corta', label: 'Rentas cortas (apartamentos y habitaciones)', icon: '🏠' },
   { id: 'otro', label: 'Otros', icon: '🏪' },
 ]
 

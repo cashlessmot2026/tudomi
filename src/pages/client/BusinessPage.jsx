@@ -4,7 +4,10 @@ import { Empty, Field, Img, Modal, Spinner } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { useCart } from '../../lib/cart'
 import { acceptedMethods, catLabel, money, priceLabel } from '../../lib/format'
+import { detailRows } from '../../lib/productFields'
 import { supabase } from '../../lib/supabase'
+
+const business_rent = (b) => b?.category === 'renta_corta'
 
 export default function BusinessPage() {
   const { id } = useParams()
@@ -89,8 +92,13 @@ export default function BusinessPage() {
                     {p.name} {p.is_pizza && <span className="pill">🍕 Mitad y mitad</span>}
                   </h4>
                   {p.description && <p className="muted small clamp">{p.description}</p>}
-                  <b className="price">{priceLabel(p)}</b>
+                  <b className="price">{business_rent(b) ? `${money(p.price)} / noche` : priceLabel(p)}</b>
                   {p.sale_type === 'peso' && <span className="pill">⚖️ Por peso</span>}
+                  {detailRows(b.category, p.details).slice(0, 3).map((r) => (
+                    <span key={r.key} className="pill">
+                      {r.value === 'Sí' ? r.label : `${r.label}: ${r.value}`}
+                    </span>
+                  ))}
                 </div>
                 <Img src={p.image_url} alt={p.name} className="product-img" />
               </button>
@@ -119,12 +127,32 @@ function ProductModal({ product: p, business, pizzas, onClose }) {
   const [half, setHalf] = useState(false)
   const [halfId, setHalfId] = useState('')
   const [done, setDone] = useState(false)
+  const d = p.details || {}
+  const rent = business.category === 'renta_corta'
+  const ropa = business.category === 'ropa'
+  const [talla, setTalla] = useState('')
+  const [color, setColor] = useState('')
+  const [entrada, setEntrada] = useState('')
+  const [salida, setSalida] = useState('')
+  const [guests, setGuests] = useState(1)
+  const today = new Date().toISOString().slice(0, 10)
+  const nights = rent && entrada && salida ? Math.round((new Date(salida) - new Date(entrada)) / 86400000) : 0
+
+  // Validación de la renta: fechas, mínimo/máximo de noches y capacidad
+  let rentErr = ''
+  if (rent && entrada && salida) {
+    if (nights < 1) rentErr = 'La salida debe ser después de la entrada'
+    else if (d.noches_min && nights < d.noches_min) rentErr = `Mínimo ${d.noches_min} noches`
+    else if (d.noches_max && nights > d.noches_max) rentErr = `Máximo ${d.noches_max} noches`
+    else if (d.huespedes && guests > d.huespedes) rentErr = `Capacidad máxima: ${d.huespedes} huéspedes`
+  }
+  const needOptions = (ropa && ((d.tallas?.length && !talla) || (d.colores?.length && !color))) || (rent && (nights < 1 || !!rentErr))
 
   const others = pizzas.filter((x) => x.id !== p.id)
   const h = others.find((x) => x.id === halfId)
   // Pizza mitad y mitad: se cobra la más costosa
   const unit = half && h ? Math.max(Number(p.price), Number(h.price)) : Number(p.price)
-  const canAdd = business.is_open && (!half || h) && qty > 0
+  const canAdd = business.is_open && (!half || h) && qty > 0 && !needOptions
 
   const submit = () => {
     add({
@@ -134,12 +162,19 @@ function ProductModal({ product: p, business, pizzas, onClose }) {
       name: p.name,
       image_url: p.image_url,
       unit_price: unit,
-      qty,
+      qty: rent ? nights : qty,
       sale_type: p.sale_type,
       weight_unit: p.weight_unit,
       half_product_id: half && h ? h.id : null,
       half_name: half && h ? h.name : null,
-      note: note.trim(),
+      note: [
+        ropa && talla && `Talla ${talla}`,
+        ropa && color && `Color ${color}`,
+        rent && `Entrada ${entrada} · Salida ${salida} (${nights} noche${nights === 1 ? '' : 's'}) · ${guests} huésped${guests === 1 ? '' : 'es'}`,
+        note.trim(),
+      ]
+        .filter(Boolean)
+        .join(' · '),
     })
     setDone(true)
     setTimeout(onClose, 600)
@@ -149,7 +184,63 @@ function ProductModal({ product: p, business, pizzas, onClose }) {
     <Modal title={p.name} onClose={onClose}>
       <Img src={p.image_url} alt={p.name} className="modal-img" />
       {p.description && <p className="muted">{p.description}</p>}
-      <p className="price big">{priceLabel(p)}</p>
+      <p className="price big">{rent ? `${money(p.price)} / noche` : priceLabel(p)}</p>
+      {detailRows(business.category, p.details).length > 0 && (
+        <div className="ticket-sec small">
+          {detailRows(business.category, p.details).map((r) => (
+            <div key={r.key}>
+              <b>{r.label}:</b> {r.value}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ropa && d.tallas?.length > 0 && (
+        <Field label="Talla">
+          <div className="chips">
+            {d.tallas.map((t) => (
+              <button type="button" key={t} className={`chip ${talla === t ? 'active' : ''}`} onClick={() => setTalla(t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
+      {ropa && d.colores?.length > 0 && (
+        <Field label="Color">
+          <div className="chips">
+            {d.colores.map((c) => (
+              <button type="button" key={c} className={`chip ${color === c ? 'active' : ''}`} onClick={() => setColor(c)}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </Field>
+      )}
+
+      {rent && (
+        <>
+          <div className="row2">
+            <Field label="Entrada">
+              <input className="input" type="date" min={today} value={entrada} onChange={(e) => setEntrada(e.target.value)} />
+            </Field>
+            <Field label="Salida">
+              <input className="input" type="date" min={entrada || today} value={salida} onChange={(e) => setSalida(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Huéspedes">
+            <input className="input" type="number" min={1} max={d.huespedes || undefined} value={guests} onChange={(e) => setGuests(Math.max(1, Number(e.target.value)))} />
+          </Field>
+          {rentErr && <p className="error">{rentErr}</p>}
+          {nights > 0 && !rentErr && (
+            <p className="note-box small">
+              {nights} noche{nights === 1 ? '' : 's'} × {money(p.price)} = <b>{money(nights * Number(p.price))}</b>
+              {d.limpieza ? ` · la limpieza (${money(d.limpieza)}) se acuerda con el anfitrión` : ''}
+              {d.deposito ? ` · depósito en garantía ${money(d.deposito)}` : ''}
+            </p>
+          )}
+        </>
+      )}
 
       {p.is_pizza && others.length > 0 && (
         <div className="half-box">
@@ -173,6 +264,7 @@ function ProductModal({ product: p, business, pizzas, onClose }) {
         </div>
       )}
 
+      {!rent && (
       <Field label={peso ? `Cantidad (${p.weight_unit})` : 'Cantidad'}>
         <div className="stepper">
           <button className="btn ghost sm" onClick={() => setQty((q) => Math.max(step, +(q - step).toFixed(2)))}>
@@ -200,6 +292,7 @@ function ProductModal({ product: p, business, pizzas, onClose }) {
           </div>
         )}
       </Field>
+      )}
 
       <Field label="Nota para este producto (opcional)">
         <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Ej: sin cebolla, bien maduros…" />
@@ -207,7 +300,7 @@ function ProductModal({ product: p, business, pizzas, onClose }) {
 
       {!business.is_open && <p className="error">El negocio está cerrado en este momento.</p>}
       <button className="btn block" disabled={!canAdd || done} onClick={submit}>
-        {done ? '✔ Agregado' : `Agregar · ${money(unit * qty)}`}
+        {done ? '✔ Agregado' : `${rent ? 'Reservar' : 'Agregar'} · ${money(unit * (rent ? nights : qty))}`}
       </button>
     </Modal>
   )
