@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { DeliveryLocation } from '../../components/DeliveryLocation'
+import MapView from '../../components/MapView'
+import { hasCoords, timeAgo } from '../../lib/geo'
 import { OrderTicket } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, Img, Modal, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { catLabel, fmtDate, money } from '../../lib/format'
@@ -372,6 +374,22 @@ function OrderDetailModal({ pass, id, onClose }) {
           </div>
 
           {o.status === 'entregado' && <DeliveryLocation loc={d.location} />}
+          {['aceptado', 'preparando', 'enviado'].includes(o.status) && (d.courier_location || hasCoords(o)) && (
+            <div className="tracker">
+              <div className="row-between small">
+                <b>🛵 Última posición del domiciliario</b>
+                {d.courier_location && <span className="muted">{timeAgo(d.courier_location.updated_at)}</span>}
+              </div>
+              <MapView
+                height={220}
+                points={[
+                  hasCoords(d.business) && { id: 'negocio', lat: d.business.lat, lng: d.business.lng, emoji: '🏪', label: d.business.name },
+                  hasCoords(o) && { id: 'destino', lat: o.lat, lng: o.lng, emoji: '🏠', label: 'Entrega' },
+                  hasCoords(d.courier_location) && { id: 'domi', lat: d.courier_location.lat, lng: d.courier_location.lng, emoji: '🛵', label: o.courier_name, pulse: true },
+                ].filter(Boolean)}
+              />
+            </div>
+          )}
 
           <OrderTicket order={o} businessName={d.business?.name} />
           <button className="btn ghost block" onClick={() => window.print()}>

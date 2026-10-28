@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Chat } from '../../components/Chat'
+import { CourierTracker } from '../../components/CourierTracker'
 import { DeliveryLocation } from '../../components/DeliveryLocation'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Spinner, StatusBadge, Tabs } from '../../components/ui'
-import { fmtDate, mapsUrl, money, waUrl } from '../../lib/format'
+import { fmtDate, money, waUrl } from '../../lib/format'
+import { mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase } from '../../lib/supabase'
 import { useRealtime } from '../../lib/useRealtime'
@@ -52,14 +54,14 @@ export default function BusinessOrders({ business }) {
       {shown.length === 0 && <Empty icon="📦" text={filter === 'activos' ? 'No hay pedidos activos. ¡Te avisamos cuando llegue uno!' : 'Sin pedidos aún'} />}
       <div className="orders-grid">
         {shown.map((o) => (
-          <OrderCard key={o.id} o={o} onChange={load} />
+          <OrderCard key={o.id} o={o} business={business} onChange={load} />
         ))}
       </div>
     </div>
   )
 }
 
-function OrderCard({ o, onChange }) {
+function OrderCard({ o, business, onChange }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [chat, setChat] = useState(false)
@@ -91,7 +93,7 @@ function OrderCard({ o, onChange }) {
       <div className="ticket-sec">
         <b>{o.customer_name}</b>
         <div className="small">
-          <a href={mapsUrl(o.address)} target="_blank" rel="noreferrer">
+          <a href={mapsLink(o.address, o.lat, o.lng)} target="_blank" rel="noreferrer">
             📍 {o.address}
           </a>
         </div>
@@ -153,6 +155,7 @@ function OrderCard({ o, onChange }) {
         </div>
       )}
       {o.reject_reason && <div className="small error">Motivo: {o.reject_reason}</div>}
+      <CourierTracker order={o} business={business} />
       {o.status === 'entregado' && <DeliveryLocation loc={[].concat(o.delivery_locations ?? [])[0]} />}
 
       <ErrorText>{err}</ErrorText>

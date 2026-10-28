@@ -46,8 +46,8 @@ export function AuthProvider({ children }) {
     updateProfile,
     signInGoogle: () => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: here() } }),
     signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
-    signUp: ({ email, password, full_name, phone, address }) =>
-      supabase.auth.signUp({ email, password, options: { data: { full_name, phone, address }, emailRedirectTo: here() } }),
+    signUp: ({ email, password, full_name, phone, address, lat, lng }) =>
+      supabase.auth.signUp({ email, password, options: { data: { full_name, phone, address, lat, lng }, emailRedirectTo: here() } }),
     signOut: () => supabase.auth.signOut(),
   }
 

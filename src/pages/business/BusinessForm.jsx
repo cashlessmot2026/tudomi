@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import AddressPicker from '../../components/AddressPicker'
 import { ErrorText, Field, Img } from '../../components/ui'
 import { CATEGORIES, imageUrl } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
@@ -37,6 +38,8 @@ export default function BusinessForm({ initial, onSaved }) {
       logo_url: imageUrl(f.logo_url) || null,
       cover_url: imageUrl(f.cover_url) || null,
       address: f.address,
+      lat: f.lat ?? null,
+      lng: f.lng ?? null,
       phone: f.phone,
       delivery_fee: Number(f.delivery_fee) || 0,
       accepts_cash: f.accepts_cash,
@@ -81,14 +84,15 @@ export default function BusinessForm({ initial, onSaved }) {
           {f.cover_url && <Img src={f.cover_url} alt="portada" className="cover-prev" />}
         </div>
       )}
-      <div className="row2">
-        <Field label="Dirección">
-          <input className="input" required value={f.address || ''} onChange={set('address')} />
-        </Field>
-        <Field label="Teléfono / WhatsApp">
-          <input className="input" required type="tel" value={f.phone || ''} onChange={set('phone')} />
-        </Field>
-      </div>
+      <AddressPicker
+        label="Dirección del negocio"
+        required
+        value={f}
+        onChange={(a) => setF((prev) => ({ ...prev, address: a.address ?? '', lat: a.lat ?? null, lng: a.lng ?? null }))}
+      />
+      <Field label="Teléfono / WhatsApp">
+        <input className="input" required type="tel" value={f.phone || ''} onChange={set('phone')} />
+      </Field>
       <Field label="Valor del domicilio (COP)">
         <input className="input" type="number" min="0" step="100" value={f.delivery_fee} onChange={set('delivery_fee')} />
       </Field>

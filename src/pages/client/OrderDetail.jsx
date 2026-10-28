@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Chat } from '../../components/Chat'
+import { CourierTracker } from '../../components/CourierTracker'
 import { ItemLine, OrderTicket } from '../../components/OrderTicket'
 import { Empty, Spinner, StatusBadge } from '../../components/ui'
 import { FLOW, STATUS, money, ticketReady } from '../../lib/format'
@@ -14,7 +15,7 @@ export default function OrderDetail() {
   const [chat, setChat] = useState(false)
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('orders').select('*, businesses(name, phone, address)').eq('id', id).maybeSingle()
+    const { data } = await supabase.from('orders').select('*, businesses(name, phone, address, lat, lng)').eq('id', id).maybeSingle()
     setO(data || false)
   }, [id])
 
@@ -58,6 +59,7 @@ export default function OrderDetail() {
       {o.courier_name && o.status !== 'entregado' && (
         <div className="card pad">
           🛵 <b>{o.courier_name}</b> lleva tu pedido {o.courier_phone && <a href={`tel:${o.courier_phone}`}>· 📞 {o.courier_phone}</a>}
+          <CourierTracker order={o} business={o.businesses} />
         </div>
       )}
 

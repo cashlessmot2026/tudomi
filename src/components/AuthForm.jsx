@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../lib/auth'
+import AddressPicker from './AddressPicker'
 import { ErrorText, Field, Spinner } from './ui'
 
 const ERRORS = {
@@ -12,7 +13,7 @@ const ERRORS = {
 export function AuthForm({ title = 'Bienvenido', subtitle }) {
   const { signInGoogle, signIn, signUp } = useAuth()
   const [mode, setMode] = useState('login')
-  const [f, setF] = useState({ full_name: '', phone: '', address: '', email: '', password: '' })
+  const [f, setF] = useState({ full_name: '', phone: '', address: '', lat: null, lng: null, email: '', password: '' })
   const [err, setErr] = useState('')
   const [info, setInfo] = useState('')
   const [busy, setBusy] = useState(false)
@@ -66,9 +67,10 @@ export function AuthForm({ title = 'Bienvenido', subtitle }) {
             <Field label="Celular">
               <input className="input" required type="tel" value={f.phone} onChange={set('phone')} />
             </Field>
-            <Field label="Dirección">
-              <input className="input" value={f.address} onChange={set('address')} placeholder="Calle, número, barrio" />
-            </Field>
+            <AddressPicker
+              value={{ address: f.address, lat: f.lat, lng: f.lng }}
+              onChange={(a) => setF((prev) => ({ ...prev, address: a.address ?? '', lat: a.lat ?? null, lng: a.lng ?? null }))}
+            />
           </>
         )}
         <Field label="Correo">

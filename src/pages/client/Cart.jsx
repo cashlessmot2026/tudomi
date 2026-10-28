@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import AddressPicker from '../../components/AddressPicker'
 import { AuthForm } from '../../components/AuthForm'
 import { Empty, ErrorText, Field, Img } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
@@ -51,14 +52,14 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
   const [method, setMethod] = useState('')
   const [file, setFile] = useState(null)
   const [note, setNote] = useState('')
-  const [address, setAddress] = useState('')
+  const [dest, setDest] = useState({ address: '', lat: null, lng: null })
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   useEffect(() => {
     if (profile) {
-      setAddress((a) => a || profile.address || '')
+      setDest((d) => (d.address || d.lat != null ? d : { address: profile.address || '', lat: profile.lat ?? null, lng: profile.lng ?? null }))
       setPhone((p) => p || profile.phone || '')
     }
   }, [profile])
@@ -72,7 +73,7 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
 
   const order = async () => {
     setErr('')
-    if (!address.trim() || !phone.trim()) return setErr('Escribe tu dirección y celular')
+    if (!dest.address?.trim() || !phone.trim()) return setErr('Escribe tu dirección y celular')
     if (method === 'transferencia' && !file) return setErr('Adjunta la foto del comprobante de la transferencia')
     setBusy(true)
     try {
@@ -86,14 +87,17 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
           payment_method: method,
           payment_proof_url: proof,
           note: note.trim() || null,
-          address: address.trim(),
+          address: dest.address.trim(),
+          lat: dest.lat ?? null,
+          lng: dest.lng ?? null,
           phone: phone.trim(),
           customer_name: profile?.full_name || user.email,
         })
         .select('id')
         .single()
       if (error) throw error
-      if (!profile?.address || !profile?.phone) updateProfile({ address: address.trim(), phone: phone.trim() }).catch(() => {})
+      if (!profile?.address || !profile?.phone || profile?.lat == null)
+        updateProfile({ address: dest.address.trim(), lat: dest.lat ?? null, lng: dest.lng ?? null, phone: phone.trim() }).catch(() => {})
       clearBusiness(bid)
       nav(`/pedidos/${data.id}`)
     } catch (e) {
@@ -136,14 +140,10 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
         />
       </Field>
 
-      <div className="row2">
-        <Field label="Dirección de entrega">
-          <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Calle, número, barrio" />
-        </Field>
-        <Field label="Celular">
-          <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </Field>
-      </div>
+      <AddressPicker label="Dirección de entrega" value={dest} onChange={setDest} />
+      <Field label="Celular">
+        <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </Field>
 
       {business && (
         <div className="pay-methods">

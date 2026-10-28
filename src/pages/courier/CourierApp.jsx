@@ -4,7 +4,8 @@ import { RequireAuth } from '../../components/AuthForm'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, InstallButton, PushButton, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { fmtDate, mapsUrl, money, waUrl } from '../../lib/format'
+import { fmtDate, money, waUrl } from '../../lib/format'
+import { directionsLink, hasCoords, mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase, uploadFile } from '../../lib/supabase'
 import { useRealtime } from '../../lib/useRealtime'
@@ -192,7 +193,7 @@ function CourierDashboard({ courier }) {
   const loadMine = useCallback(async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, businesses(name, address, phone)')
+      .select('*, businesses(name, address, phone, lat, lng)')
       .eq('courier_id', courier.id)
       .order('created_at', { ascending: false })
       .limit(50)
@@ -217,6 +218,7 @@ function CourierDashboard({ courier }) {
   }
 
   const active = (mine || []).filter((o) => o.status !== 'entregado' && o.status !== 'rechazado')
+  const live = useLiveLocation(courier.id, active.length > 0)
 
   return (
     <div className="page">
@@ -229,6 +231,19 @@ function CourierDashboard({ courier }) {
           </p>
         </div>
       </div>
+      {active.length > 0 && (
+        <div className={`card pad live-banner ${live.error ? 'warn' : ''}`}>
+          {live.error ? (
+            <>⚠️ {live.error}</>
+          ) : (
+            <>
+              <span className="live-dot on">●</span> Compartiendo tu ubicación en vivo con el cliente y el negocio mientras tengas entregas activas.
+              {live.at && <span className="muted small"> Última: {new Date(live.at).toLocaleTimeString('es-CO')}</span>}
+            </>
+          )}
+          <div className="muted small">Mantén la app abierta y la pantalla encendida durante la entrega.</div>
+        </div>
+      )}
       <Tabs
         value={tab}
         onChange={setTab}
@@ -295,6 +310,53 @@ function CourierDashboard({ courier }) {
   )
 }
 
+// Envía la posición del domi a courier_locations mientras tenga entregas activas
+function useLiveLocation(courierId, enabled) {
+  const [state, setState] = useState({ at: null, error: '' })
+  useEffect(() => {
+    if (!enabled) return
+    if (!navigator.geolocation) {
+      setState({ at: null, error: 'Tu dispositivo no permite compartir la ubicación' })
+      return
+    }
+    let last = 0
+    let lastPos = null
+    let lock = null
+    // Mantener la pantalla encendida ayuda a que el GPS siga activo
+    navigator.wakeLock?.request('screen').then((l) => (lock = l)).catch(() => {})
+    const send = async (c) => {
+      const { error } = await supabase.from('courier_locations').upsert({
+        courier_id: courierId,
+        lat: c.latitude,
+        lng: c.longitude,
+        accuracy: c.accuracy,
+        heading: Number.isFinite(c.heading) ? c.heading : null,
+        speed: Number.isFinite(c.speed) ? c.speed : null,
+        updated_at: new Date().toISOString(),
+      })
+      setState(error ? { at: null, error: `No se pudo enviar la ubicación: ${error.message}` } : { at: Date.now(), error: '' })
+    }
+    const id = navigator.geolocation.watchPosition(
+      (p) => {
+        const now = Date.now()
+        const moved = !lastPos || Math.hypot(p.coords.latitude - lastPos.latitude, p.coords.longitude - lastPos.longitude) > 0.00012
+        // Máximo una actualización cada 5 s, o cada 30 s si está quieto
+        if (now - last < 5000 || (!moved && now - last < 30000)) return
+        last = now
+        lastPos = p.coords
+        send(p.coords)
+      },
+      (e) => setState({ at: null, error: e.code === 1 ? 'Activa el permiso de ubicación para que el cliente y el negocio vean tu recorrido' : 'No se pudo obtener tu ubicación. Activa el GPS' }),
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 },
+    )
+    return () => {
+      navigator.geolocation.clearWatch(id)
+      lock?.release?.().catch(() => {})
+    }
+  }, [courierId, enabled])
+  return state
+}
+
 // Posición actual del dispositivo al cerrar la entrega (se envía al servidor, no se muestra)
 const getGps = () =>
   new Promise((resolve) => {
@@ -330,16 +392,26 @@ function DeliveryCard({ o, onChange }) {
       <div className="ticket-sec small">
         <b>Recoger en:</b> {o.businesses?.name}
         <br />
-        <a href={mapsUrl(o.businesses?.address)} target="_blank" rel="noreferrer">
+        <a href={mapsLink(o.businesses?.address, o.businesses?.lat, o.businesses?.lng)} target="_blank" rel="noreferrer">
           📍 {o.businesses?.address}
         </a>
+        {hasCoords(o.businesses) && ['aceptado', 'preparando'].includes(o.status) && (
+          <a className="btn ghost sm nav-btn" href={directionsLink(o.businesses.lat, o.businesses.lng)} target="_blank" rel="noreferrer">
+            🧭 Cómo llegar al negocio
+          </a>
+        )}
       </div>
       <div className="ticket-sec small">
         <b>Entregar a:</b> {o.customer_name}
         <br />
-        <a href={mapsUrl(o.address)} target="_blank" rel="noreferrer">
+        <a href={mapsLink(o.address, o.lat, o.lng)} target="_blank" rel="noreferrer">
           📍 {o.address}
         </a>
+        {hasCoords(o) && ['aceptado', 'preparando', 'enviado'].includes(o.status) && (
+          <a className="btn ghost sm nav-btn" href={directionsLink(o.lat, o.lng)} target="_blank" rel="noreferrer">
+            🧭 Cómo llegar al cliente
+          </a>
+        )}
         {o.phone && (
           <>
             <br />
