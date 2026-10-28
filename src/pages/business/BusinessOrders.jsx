@@ -4,7 +4,7 @@ import { CourierTracker } from '../../components/CourierTracker'
 import { DeliveryLocation } from '../../components/DeliveryLocation'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Spinner, StatusBadge, Tabs } from '../../components/ui'
-import { fmtDate, money, waUrl } from '../../lib/format'
+import { fmtDate, money, needsProof, payLabel, waUrl } from '../../lib/format'
 import { mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase } from '../../lib/supabase'
@@ -15,6 +15,7 @@ const ACTIVE = ['pendiente', 'aceptado', 'preparando', 'enviado']
 export default function BusinessOrders({ business }) {
   const [list, setList] = useState(null)
   const [filter, setFilter] = useState('activos')
+  const [own, setOwn] = useState([])
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -24,6 +25,14 @@ export default function BusinessOrders({ business }) {
       .order('created_at', { ascending: false })
       .limit(150)
     setList(data || [])
+    const { data: c } = await supabase
+      .from('couriers')
+      .select('id, full_name, phone')
+      .eq('business_id', business.id)
+      .eq('kind', 'propio')
+      .eq('active', true)
+      .order('full_name')
+    setOwn(c || [])
   }, [business.id])
 
   useEffect(() => {
@@ -54,19 +63,20 @@ export default function BusinessOrders({ business }) {
       {shown.length === 0 && <Empty icon="📦" text={filter === 'activos' ? 'No hay pedidos activos. ¡Te avisamos cuando llegue uno!' : 'Sin pedidos aún'} />}
       <div className="orders-grid">
         {shown.map((o) => (
-          <OrderCard key={o.id} o={o} business={business} onChange={load} />
+          <OrderCard key={o.id} o={o} business={business} own={own} onChange={load} />
         ))}
       </div>
     </div>
   )
 }
 
-function OrderCard({ o, business, onChange }) {
+function OrderCard({ o, business, own, onChange }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [chat, setChat] = useState(false)
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
+  const [pick, setPick] = useState('')
 
   const act = async (fields) => {
     setBusy(true)
@@ -80,7 +90,20 @@ function OrderCard({ o, business, onChange }) {
     }
   }
 
-  const transferPending = o.payment_method === 'transferencia' && o.payment_status === 'pendiente'
+  const transferPending = needsProof(o.payment_method) && o.payment_status === 'pendiente'
+  // Sin domiciliarios propios, al aceptar el pedido se publica de una para los externos
+  const acceptFields = own.length ? {} : { dispatch: 'externo' }
+  const needsCourier = ['aceptado', 'preparando'].includes(o.status) && !o.courier_id
+
+  const assign = async () => {
+    if (!pick) return setErr('Elige un domiciliario')
+    setBusy(true)
+    setErr('')
+    const { error } = await supabase.rpc('assign_own_courier', { p_order: o.id, p_courier: pick })
+    setBusy(false)
+    if (error) setErr(error.message)
+    else onChange()
+  }
 
   return (
     <div className={`card pad order-card st-${o.status}`}>
@@ -126,11 +149,11 @@ function OrderCard({ o, business, onChange }) {
       </div>
 
       <div className="small">
-        {o.payment_method === 'efectivo' ? (
-          '💵 Pago en efectivo'
+        {!needsProof(o.payment_method) ? (
+          <>{payLabel(o.payment_method)} · se cobra al entregar</>
         ) : (
           <>
-            🏦 Transferencia · pago <b>{o.payment_status}</b>{' '}
+            {payLabel(o.payment_method)} · pago <b>{o.payment_status}</b>{' '}
             {o.payment_proof_url && (
               <a href={o.payment_proof_url} target="_blank" rel="noreferrer">
                 · Ver comprobante
@@ -151,23 +174,52 @@ function OrderCard({ o, business, onChange }) {
       </div>
       {o.courier_name && (
         <div className="small">
-          🛵 {o.courier_name} {o.courier_phone && <a href={`tel:${o.courier_phone}`}>· {o.courier_phone}</a>}
+          🛵 {o.courier_name} <span className="pill">{o.dispatch === 'propio' ? 'Propio' : 'Externo'}</span>{' '}
+          {o.courier_phone && <a href={`tel:${o.courier_phone}`}>· {o.courier_phone}</a>}
         </div>
       )}
       {o.reject_reason && <div className="small error">Motivo: {o.reject_reason}</div>}
       <CourierTracker order={o} business={business} />
       {o.status === 'entregado' && <DeliveryLocation loc={[].concat(o.delivery_locations ?? [])[0]} />}
 
+      {needsCourier && (
+        <div className="dispatch-box">
+          <b className="small">🛵 ¿Quién lleva este pedido?</b>
+          {own.length > 0 && (
+            <div className="dispatch-row">
+              <select className="input" value={pick} onChange={(e) => setPick(e.target.value)}>
+                <option value="">Mi domiciliario de confianza…</option>
+                {own.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.full_name}
+                  </option>
+                ))}
+              </select>
+              <button className="btn ok sm" disabled={busy || !pick} onClick={assign}>
+                Asignar
+              </button>
+            </div>
+          )}
+          {o.dispatch === 'externo' ? (
+            <p className="muted small">⏳ Publicado para domiciliarios externos. Esperando que uno lo tome…</p>
+          ) : (
+            <button className="btn ghost sm" disabled={busy} onClick={() => act({ dispatch: 'externo' })}>
+              🌐 Enviar a domiciliarios externos
+            </button>
+          )}
+        </div>
+      )}
+
       <ErrorText>{err}</ErrorText>
 
       <div className="actions">
         {o.status === 'pendiente' && transferPending && (
-          <button className="btn ok sm" disabled={busy} onClick={() => act({ payment_status: 'validado', status: 'aceptado' })}>
+          <button className="btn ok sm" disabled={busy} onClick={() => act({ payment_status: 'validado', status: 'aceptado', ...acceptFields })}>
             ✔ Validar pago y aceptar
           </button>
         )}
-        {o.status === 'pendiente' && o.payment_method === 'efectivo' && (
-          <button className="btn ok sm" disabled={busy} onClick={() => act({ status: 'aceptado' })}>
+        {o.status === 'pendiente' && !needsProof(o.payment_method) && (
+          <button className="btn ok sm" disabled={busy} onClick={() => act({ status: 'aceptado', ...acceptFields })}>
             ✔ Aceptar
           </button>
         )}

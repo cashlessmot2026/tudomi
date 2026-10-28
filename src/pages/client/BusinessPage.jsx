@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Empty, Field, Img, Modal, Spinner } from '../../components/ui'
 import { useCart } from '../../lib/cart'
-import { catLabel, money, priceLabel } from '../../lib/format'
+import { acceptedMethods, catLabel, money, priceLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 export default function BusinessPage() {
@@ -56,8 +56,11 @@ export default function BusinessPage() {
             <p className="small">
               <span className={`pill ${b.is_open ? 'ok' : 'bad'}`}>{b.is_open ? '● Abierto' : '● Cerrado'}</span>
               <span className="pill">🛵 {Number(b.delivery_fee) ? money(b.delivery_fee) : 'Gratis'}</span>
-              {b.accepts_cash && <span className="pill">💵 Efectivo</span>}
-              {b.accepts_transfer && <span className="pill">🏦 Transferencia</span>}
+              {acceptedMethods(b).map((m) => (
+                <span key={m.id} className="pill">
+                  {m.icon} {m.label}
+                </span>
+              ))}
             </p>
           </div>
         </div>

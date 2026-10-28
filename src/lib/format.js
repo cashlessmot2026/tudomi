@@ -27,9 +27,22 @@ export const STATUS = {
 
 export const FLOW = ['pendiente', 'aceptado', 'preparando', 'enviado', 'entregado']
 
-// Efectivo: el ticket se muestra de una. Transferencia: cuando el negocio valida el pago.
-export const ticketReady = (o) =>
-  o.status !== 'rechazado' && (o.payment_method === 'efectivo' || o.payment_status === 'validado')
+// Métodos de pago. proof = el cliente sube comprobante y el negocio lo valida.
+export const PAY_METHODS = [
+  { id: 'efectivo', flag: 'accepts_cash', label: 'Efectivo', icon: '💵', hint: 'Pagas al recibir', proof: false },
+  { id: 'datafono', flag: 'accepts_card', label: 'Datáfono', icon: '💳', hint: 'Tarjeta débito o crédito al recibir', proof: false },
+  { id: 'transferencia', flag: 'accepts_transfer', label: 'Transferencia', icon: '🏦', hint: 'Transfieres y subes el comprobante', proof: true },
+  { id: 'qr', flag: 'accepts_qr', label: 'Código QR', icon: '📱', hint: 'Escaneas el QR y subes el comprobante', proof: true },
+  { id: 'link', flag: 'accepts_link', label: 'Link de pago', icon: '🔗', hint: 'Pagas en línea y subes el comprobante', proof: true },
+]
+
+export const payMethod = (id) => PAY_METHODS.find((m) => m.id === id) || { id, label: id, icon: '💰', proof: false }
+export const payLabel = (id) => `${payMethod(id).icon} ${payMethod(id).label}`
+export const needsProof = (id) => payMethod(id).proof
+export const acceptedMethods = (b) => (b ? PAY_METHODS.filter((m) => b[m.flag]) : [])
+
+// Pago contra entrega: el ticket se muestra de una. Pago anticipado: cuando el negocio valida el pago.
+export const ticketReady = (o) => o.status !== 'rechazado' && (!needsProof(o.payment_method) || o.payment_status === 'validado')
 
 // Convierte enlaces de compartir (Google Drive, Dropbox) en URLs directas de imagen
 export function imageUrl(url) {

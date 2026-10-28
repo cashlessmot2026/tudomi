@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import AddressPicker from '../../components/AddressPicker'
 import { ErrorText, Field, Img } from '../../components/ui'
-import { CATEGORIES, imageUrl } from '../../lib/format'
+import { CATEGORIES, PAY_METHODS, imageUrl } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 const EMPTY = {
@@ -15,7 +15,12 @@ const EMPTY = {
   delivery_fee: 0,
   accepts_cash: true,
   accepts_transfer: false,
+  accepts_card: false,
+  accepts_qr: false,
+  accepts_link: false,
   transfer_info: '',
+  qr_image_url: '',
+  payment_link_url: '',
 }
 
 export default function BusinessForm({ initial, onSaved }) {
@@ -29,7 +34,9 @@ export default function BusinessForm({ initial, onSaved }) {
     e.preventDefault()
     setErr('')
     setMsg('')
-    if (!f.accepts_cash && !f.accepts_transfer) return setErr('Elige al menos un método de pago')
+    if (!PAY_METHODS.some((m) => f[m.flag])) return setErr('Elige al menos un método de pago')
+    if (f.accepts_qr && !f.qr_image_url) return setErr('Pega el enlace de la imagen de tu código QR')
+    if (f.accepts_link && !/^https?:\/\//i.test(f.payment_link_url || '')) return setErr('Pega tu link de pago (debe empezar por https://)')
     setBusy(true)
     const row = {
       name: f.name.trim(),
@@ -42,9 +49,14 @@ export default function BusinessForm({ initial, onSaved }) {
       lng: f.lng ?? null,
       phone: f.phone,
       delivery_fee: Number(f.delivery_fee) || 0,
-      accepts_cash: f.accepts_cash,
-      accepts_transfer: f.accepts_transfer,
+      accepts_cash: !!f.accepts_cash,
+      accepts_transfer: !!f.accepts_transfer,
+      accepts_card: !!f.accepts_card,
+      accepts_qr: !!f.accepts_qr,
+      accepts_link: !!f.accepts_link,
       transfer_info: f.transfer_info || null,
+      qr_image_url: imageUrl(f.qr_image_url) || null,
+      payment_link_url: (f.payment_link_url || '').trim() || null,
     }
     const { error } = initial ? await supabase.from('businesses').update(row).eq('id', initial.id) : await supabase.from('businesses').insert(row)
     setBusy(false)
@@ -98,18 +110,30 @@ export default function BusinessForm({ initial, onSaved }) {
       </Field>
 
       <Field label="Métodos de pago que aceptas">
-        <label className="check">
-          <input type="checkbox" checked={f.accepts_cash} onChange={set('accepts_cash')} />
-          <span>💵 Efectivo contra entrega</span>
-        </label>
-        <label className="check">
-          <input type="checkbox" checked={f.accepts_transfer} onChange={set('accepts_transfer')} />
-          <span>🏦 Transferencia (el cliente sube el comprobante)</span>
-        </label>
+        {PAY_METHODS.map((m) => (
+          <label key={m.id} className="check">
+            <input type="checkbox" checked={!!f[m.flag]} onChange={set(m.flag)} />
+            <span>
+              {m.icon} {m.label} <small className="muted">· {m.hint.replace('Pagas', 'El cliente paga').replace('Transfieres', 'El cliente transfiere').replace('Escaneas', 'El cliente escanea')}</small>
+            </span>
+          </label>
+        ))}
       </Field>
+      {f.accepts_card && <p className="muted small">💳 Recuerda que el domiciliario debe llevar el datáfono al entregar.</p>}
       {f.accepts_transfer && (
         <Field label="Datos para transferir" hint="Banco, tipo y número de cuenta, Nequi, Daviplata, titular…">
           <textarea className="input" rows={3} value={f.transfer_info || ''} onChange={set('transfer_info')} />
+        </Field>
+      )}
+      {f.accepts_qr && (
+        <Field label="Imagen de tu código QR" hint="Enlace de la imagen del QR (Bancolombia, Nequi, Daviplata…). Sirve un enlace de Google Drive compartido.">
+          <input className="input" type="url" value={f.qr_image_url || ''} onChange={set('qr_image_url')} placeholder="https://…" />
+          {f.qr_image_url && <Img src={f.qr_image_url} alt="QR" className="qr-img" fallback="📱" />}
+        </Field>
+      )}
+      {f.accepts_link && (
+        <Field label="Tu link de pago" hint="Link de Wompi, Mercado Pago, Bold, PayU, Nequi, etc. El cliente lo abre, paga y sube el comprobante.">
+          <input className="input" type="url" value={f.payment_link_url || ''} onChange={set('payment_link_url')} placeholder="https://checkout.wompi.co/l/…" />
         </Field>
       )}
       <ErrorText>{err}</ErrorText>

@@ -5,6 +5,7 @@ import { Img, InstallButton, PushButton, Spinner, Tabs } from '../../components/
 import { useAuth } from '../../lib/auth'
 import { catLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
+import BusinessCouriers from './BusinessCouriers'
 import BusinessForm from './BusinessForm'
 import BusinessOrders from './BusinessOrders'
 import BusinessProducts from './BusinessProducts'
@@ -77,12 +78,14 @@ function BusinessInner() {
         items={[
           ['pedidos', '📦 Pedidos'],
           ['productos', '🛍️ Productos'],
+          ['domis', '🛵 Domiciliarios'],
           ['ajustes', '⚙️ Ajustes'],
         ]}
       />
 
       {tab === 'pedidos' && <BusinessOrders business={b} />}
       {tab === 'productos' && <BusinessProducts business={b} />}
+      {tab === 'domis' && <BusinessCouriers business={b} />}
       {tab === 'ajustes' && (
         <div className="narrow">
           <BusinessForm initial={b} onSaved={load} />

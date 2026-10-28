@@ -4,7 +4,7 @@ import MapView from '../../components/MapView'
 import { hasCoords, timeAgo } from '../../lib/geo'
 import { OrderTicket } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, Img, Modal, Spinner, StatusBadge, Tabs } from '../../components/ui'
-import { catLabel, fmtDate, money } from '../../lib/format'
+import { catLabel, fmtDate, money, needsProof, payLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 const KEY = 'tudomi_admin'
@@ -180,13 +180,24 @@ function Couriers({ pass, onChange }) {
               <h3>{c.full_name}</h3>
               <span className={`pill ${c.status === 'aprobado' ? 'ok' : c.status === 'rechazado' ? 'bad' : ''}`}>{c.status}</span>
             </div>
-            <p className="small muted">
-              CC {c.document_number} · 📞 {c.phone}
-              <br />
-              🏍️ {c.vehicle_plate} {c.vehicle_model && `· ${c.vehicle_model}`}
-              <br />
-              Registrado: {fmtDate(c.created_at)}
-            </p>
+            {c.kind === 'propio' ? (
+              <p className="small muted">
+                <span className="pill">🏪 Propio de un negocio · {c.active ? 'activo' : 'inactivo'}</span>
+                <br />
+                {c.email} · 📞 {c.phone}
+                <br />
+                Inscrito por su negocio sin documentos; solo recibe los pedidos que ese negocio le asigna.
+              </p>
+            ) : (
+              <p className="small muted">
+                CC {c.document_number} · 📞 {c.phone}
+                <br />
+                🏍️ {c.vehicle_plate} {c.vehicle_model && `· ${c.vehicle_model}`}
+                <br />
+                Registrado: {fmtDate(c.created_at)}
+              </p>
+            )}
+            {c.kind !== 'propio' && (
             <div className="docs">
               {Object.entries(DOC_LABELS).map(([k, label]) => (
                 <a key={k} href={c[k]} target="_blank" rel="noreferrer" className="doc">
@@ -195,6 +206,7 @@ function Couriers({ pass, onChange }) {
                 </a>
               ))}
             </div>
+            )}
             {c.admin_note && <p className="small error">Nota: {c.admin_note}</p>}
             <input
               className="input"
@@ -358,7 +370,8 @@ function OrderDetailModal({ pass, id, onClose }) {
             </div>
             <div>
               <b>Pago</b>
-              {o.payment_method === 'efectivo' ? '💵 Efectivo' : `🏦 Transferencia · ${o.payment_status}`}
+              {payLabel(o.payment_method)}
+              {needsProof(o.payment_method) && ` · ${o.payment_status}`}
               {o.payment_proof_url && (
                 <a href={o.payment_proof_url} target="_blank" rel="noreferrer">
                   Ver comprobante

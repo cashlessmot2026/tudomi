@@ -5,7 +5,7 @@ import { AuthForm } from '../../components/AuthForm'
 import { Empty, ErrorText, Field, Img } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { useCart } from '../../lib/cart'
-import { money, qtyLabel } from '../../lib/format'
+import { acceptedMethods, money, needsProof, payMethod, qtyLabel } from '../../lib/format'
 import { supabase, uploadFile } from '../../lib/supabase'
 
 export default function Cart() {
@@ -65,7 +65,7 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
   }, [profile])
 
   useEffect(() => {
-    if (business && !method) setMethod(business.accepts_cash ? 'efectivo' : 'transferencia')
+    if (business && !method) setMethod(acceptedMethods(business)[0]?.id || '')
   }, [business, method])
 
   const subtotal = list.reduce((s, i) => s + i.unit_price * i.qty, 0)
@@ -74,11 +74,12 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
   const order = async () => {
     setErr('')
     if (!dest.address?.trim() || !phone.trim()) return setErr('Escribe tu dirección y celular')
-    if (method === 'transferencia' && !file) return setErr('Adjunta la foto del comprobante de la transferencia')
+    if (!method) return setErr('Elige un método de pago')
+    if (needsProof(method) && !file) return setErr('Adjunta el comprobante del pago')
     setBusy(true)
     try {
       let proof = null
-      if (method === 'transferencia') proof = await uploadFile('comprobantes', file, user.id)
+      if (needsProof(method)) proof = await uploadFile('comprobantes', file, user.id)
       const { data, error } = await supabase
         .from('orders')
         .insert({
@@ -146,28 +147,50 @@ function CheckoutGroup({ bid, business, list, canOrder }) {
       </Field>
 
       {business && (
-        <div className="pay-methods">
-          {business.accepts_cash && (
-            <button className={`pay ${method === 'efectivo' ? 'active' : ''}`} onClick={() => setMethod('efectivo')}>
-              💵 Efectivo
-            </button>
-          )}
-          {business.accepts_transfer && (
-            <button className={`pay ${method === 'transferencia' ? 'active' : ''}`} onClick={() => setMethod('transferencia')}>
-              🏦 Transferencia
-            </button>
-          )}
-        </div>
+        <Field label="Método de pago">
+          <div className="pay-methods">
+            {acceptedMethods(business).map((m) => (
+              <button key={m.id} type="button" className={`pay ${method === m.id ? 'active' : ''}`} onClick={() => setMethod(m.id)}>
+                {m.icon} {m.label}
+              </button>
+            ))}
+          </div>
+          {method && <small className="muted">{payMethod(method).hint}</small>}
+        </Field>
       )}
 
-      {method === 'transferencia' && business && (
+      {method === 'datafono' && <p className="note-box small">💳 El domiciliario llevará el datáfono. Paga {money(subtotal + fee)} con tu tarjeta al recibir.</p>}
+
+      {business && needsProof(method) && (
         <div className="transfer-box">
-          <p className="small">
-            <b>Datos para transferir:</b>
-          </p>
-          <pre className="small">{business.transfer_info || 'Consulta los datos con el negocio en el chat.'}</pre>
-          <Field label={`Comprobante (transfiere ${money(subtotal + fee)})`}>
-            <input className="input" type="file" accept="image/*" onChange={(e) => setFile(e.target.files[0] || null)} />
+          {method === 'transferencia' && (
+            <>
+              <p className="small">
+                <b>Datos para transferir:</b>
+              </p>
+              <pre className="small">{business.transfer_info || 'Consulta los datos con el negocio en el chat.'}</pre>
+            </>
+          )}
+          {method === 'qr' && (
+            <>
+              <p className="small">
+                <b>Escanea este QR con la app de tu banco y paga {money(subtotal + fee)}:</b>
+              </p>
+              <Img src={business.qr_image_url} alt="Código QR de pago" className="qr-img" fallback="📱" />
+            </>
+          )}
+          {method === 'link' && (
+            <>
+              <p className="small">
+                <b>Paga {money(subtotal + fee)} en el link del negocio y vuelve aquí con el comprobante:</b>
+              </p>
+              <a className="btn ghost block" href={business.payment_link_url} target="_blank" rel="noreferrer">
+                🔗 Abrir link de pago
+              </a>
+            </>
+          )}
+          <Field label={`Comprobante del pago (${money(subtotal + fee)})`}>
+            <input className="input" type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files[0] || null)} />
           </Field>
           <p className="muted small">El negocio validará el pago y luego se genera tu ticket.</p>
         </div>

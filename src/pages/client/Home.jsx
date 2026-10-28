@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Empty, Img, Spinner } from '../../components/ui'
-import { CATEGORIES, catLabel, money } from '../../lib/format'
+import { CATEGORIES, acceptedMethods, catLabel, money } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 export default function Home() {
@@ -66,8 +66,11 @@ export default function Home() {
                     {catLabel(b.category)} · Domicilio {Number(b.delivery_fee) ? money(b.delivery_fee) : 'gratis'}
                   </p>
                   <p className="small">
-                    {b.accepts_cash && <span className="pill">💵 Efectivo</span>}
-                    {b.accepts_transfer && <span className="pill">🏦 Transferencia</span>}
+                    {acceptedMethods(b).map((m) => (
+                      <span key={m.id} className="pill">
+                        {m.icon} {m.label}
+                      </span>
+                    ))}
                   </p>
                 </div>
               </div>

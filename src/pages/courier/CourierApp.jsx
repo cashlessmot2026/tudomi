@@ -4,7 +4,9 @@ import { RequireAuth } from '../../components/AuthForm'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Field, InstallButton, PushButton, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
-import { fmtDate, money, waUrl } from '../../lib/format'
+import { fmtDate, money, needsProof, waUrl } from '../../lib/format'
+
+const chargeLabel = (m) => (m === 'efectivo' ? '💵 Cobrar en efectivo' : m === 'datafono' ? '💳 Cobrar con datáfono' : needsProof(m) ? '✅ Ya pagado' : 'Cobrar')
 import { directionsLink, hasCoords, mapsLink } from '../../lib/geo'
 import { beep, notifyLocal } from '../../lib/pwa'
 import { supabase, uploadFile } from '../../lib/supabase'
@@ -32,7 +34,9 @@ function CourierInner() {
   const [editing, setEditing] = useState(false)
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('couriers').select('*').eq('id', user.id).maybeSingle()
+    // Si un negocio lo inscribió con este correo, queda vinculado como domiciliario propio
+    await supabase.rpc('claim_courier_invite')
+    const { data } = await supabase.from('couriers').select('*, businesses(name)').eq('id', user.id).maybeSingle()
     setC(data)
   }, [user.id])
 
@@ -41,6 +45,23 @@ function CourierInner() {
   }, [load])
 
   if (c === undefined) return <Spinner />
+
+  if (c?.kind === 'propio' && !c.active)
+    return (
+      <div className="page narrow">
+        <div className="card pad waiting">
+          <div className="empty-icon">⏸️</div>
+          <h2>Cuenta pausada</h2>
+          <p className="muted">{c.businesses?.name || 'Tu negocio'} desactivó tu cuenta de domiciliario. Comunícate con ellos.</p>
+          <button className="btn ghost sm" onClick={load}>
+            ↻ Actualizar
+          </button>
+        </div>
+        <button className="btn danger sm mt" onClick={signOut}>
+          Cerrar sesión
+        </button>
+      </div>
+    )
 
   if (!c || editing)
     return (
@@ -174,12 +195,14 @@ function CourierRegister({ existing, onSaved }) {
 
 function CourierDashboard({ courier }) {
   const { signOut } = useAuth()
-  const [tab, setTab] = useState('disponibles')
+  const own = courier.kind === 'propio'
+  const [tab, setTab] = useState(own ? 'mios' : 'disponibles')
   const [avail, setAvail] = useState(null)
   const [mine, setMine] = useState(null)
   const [err, setErr] = useState('')
 
   const loadAvail = useCallback(async () => {
+    if (own) return setAvail([])
     const { data } = await supabase.rpc('available_orders')
     setAvail((prev) => {
       if (prev && data && data.some((o) => !prev.find((p) => p.id === o.id))) {
@@ -188,7 +211,7 @@ function CourierDashboard({ courier }) {
       }
       return data || []
     })
-  }, [])
+  }, [own])
 
   const loadMine = useCallback(async () => {
     const { data } = await supabase
@@ -203,9 +226,9 @@ function CourierDashboard({ courier }) {
   useEffect(() => {
     loadAvail()
     loadMine()
-    const t = setInterval(loadAvail, 15000)
+    const t = setInterval(own ? loadMine : loadAvail, 15000)
     return () => clearInterval(t)
-  }, [loadAvail, loadMine])
+  }, [loadAvail, loadMine, own])
 
   useRealtime('orders', `courier_id=eq.${courier.id}`, loadMine)
 
@@ -227,7 +250,15 @@ function CourierDashboard({ courier }) {
         <div className="grow">
           <h2>{courier.full_name}</h2>
           <p className="muted small">
-            Placa {courier.vehicle_plate} · <span className="pill ok">Aprobado</span>
+            {own ? (
+              <>
+                Domiciliario de <b>{courier.businesses?.name || 'tu negocio'}</b> · <span className="pill ok">Propio</span>
+              </>
+            ) : (
+              <>
+                Placa {courier.vehicle_plate} · <span className="pill ok">Aprobado</span>
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -248,7 +279,7 @@ function CourierDashboard({ courier }) {
         value={tab}
         onChange={setTab}
         items={[
-          ['disponibles', `📦 Disponibles (${avail?.length || 0})`],
+          ...(own ? [] : [['disponibles', `📦 Disponibles (${avail?.length || 0})`]]),
           ['mios', `🛵 Mis entregas (${active.length})`],
           ['cuenta', '👤 Cuenta'],
         ]}
@@ -275,7 +306,7 @@ function CourierDashboard({ courier }) {
                 </p>
                 <p className="small">📍 Entregar en: {o.address}</p>
                 <p className="small">
-                  {o.items_count} producto(s) · <b>{money(o.total)}</b> · {o.payment_method === 'efectivo' ? '💵 Cobrar efectivo' : '🏦 Ya pagado'}
+                  {o.items_count} producto(s) · <b>{money(o.total)}</b> · {chargeLabel(o.payment_method)}
                 </p>
                 <button className="btn block pulse" onClick={() => take(o.id)}>
                   Tomar pedido
@@ -289,7 +320,7 @@ function CourierDashboard({ courier }) {
         (mine === null ? (
           <Spinner />
         ) : mine.length === 0 ? (
-          <Empty icon="🛵" text="Aún no has tomado pedidos" />
+          <Empty icon="🛵" text={own ? `Aún no tienes pedidos. ${courier.businesses?.name || "Tu negocio"} te los asignará aquí.` : "Aún no has tomado pedidos"} />
         ) : (
           <div className="orders-grid">
             {mine.map((o) => (
@@ -430,7 +461,7 @@ function DeliveryCard({ o, onChange }) {
       {o.note && <div className="note-box">📝 {o.note}</div>}
       <div className="totals">
         <div className="grand">
-          <span>{o.payment_method === 'efectivo' ? '💵 Cobrar' : '🏦 Pagado'}</span>
+          <span>{chargeLabel(o.payment_method)}</span>
           <span>{money(o.total)}</span>
         </div>
       </div>

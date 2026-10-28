@@ -225,6 +225,9 @@ tr.clickable:hover { background: color-mix(in srgb, var(--brand) 10%, transparen
 .live-banner { font-size: 0.88rem; border-color: #166534; }
 .live-banner.warn { border-color: #78350f; color: #fbbf24; }
 .nav-btn { margin-top: 6px; }
+.dispatch-box { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; border: 1px dashed var(--brand); background: color-mix(in srgb, var(--brand) 6%, transparent); }
+.dispatch-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.qr-img { width: 220px; max-width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 12px; padding: 8px; margin: 8px auto; display: block; font-size: 3rem; }
 .import-preview { max-height: 260px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; }
 
 /* ---------- Cart ---------- */
