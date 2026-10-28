@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { STATUS } from '../lib/format'
+import { STATUS, imageUrl } from '../lib/format'
 import { canPromptInstall, enablePush, isIOS, isStandalone, onInstallChange, promptInstall } from '../lib/pwa'
 
 export const Spinner = ({ text }) => (
@@ -70,9 +70,10 @@ export const Tabs = ({ value, onChange, items }) => (
 )
 
 export const Img = ({ src, alt, className, fallback = '🛍️' }) => {
-  const [bad, setBad] = useState(false)
-  if (!src || bad) return <div className={`img-fallback ${className || ''}`}>{fallback}</div>
-  return <img src={src} alt={alt} className={className} loading="lazy" onError={() => setBad(true)} />
+  const url = imageUrl(src)
+  const [bad, setBad] = useState(null)
+  if (!url || bad === url) return <div className={`img-fallback ${className || ''}`}>{fallback}</div>
+  return <img src={url} alt={alt} className={className} loading="lazy" referrerPolicy="no-referrer" onError={() => setBad(url)} />
 }
 
 export function InstallButton() {

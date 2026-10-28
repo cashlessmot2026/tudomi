@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ErrorText, Field, Img } from '../../components/ui'
-import { CATEGORIES } from '../../lib/format'
+import { CATEGORIES, imageUrl } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 const EMPTY = {
@@ -34,8 +34,8 @@ export default function BusinessForm({ initial, onSaved }) {
       name: f.name.trim(),
       category: f.category,
       description: f.description || null,
-      logo_url: f.logo_url || null,
-      cover_url: f.cover_url || null,
+      logo_url: imageUrl(f.logo_url) || null,
+      cover_url: imageUrl(f.cover_url) || null,
       address: f.address,
       phone: f.phone,
       delivery_fee: Number(f.delivery_fee) || 0,
@@ -68,7 +68,7 @@ export default function BusinessForm({ initial, onSaved }) {
         <textarea className="input" rows={2} value={f.description || ''} onChange={set('description')} />
       </Field>
       <div className="row2">
-        <Field label="URL del logo" hint="Pega el enlace de una imagen">
+        <Field label="URL del logo" hint="Sirve un enlace de Google Drive (compartido con “Cualquier persona con el enlace”) o cualquier URL de imagen">
           <input className="input" type="url" value={f.logo_url || ''} onChange={set('logo_url')} placeholder="https://…" />
         </Field>
         <Field label="URL de la portada">

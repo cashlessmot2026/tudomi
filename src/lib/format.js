@@ -31,6 +31,24 @@ export const FLOW = ['pendiente', 'aceptado', 'preparando', 'enviado', 'entregad
 export const ticketReady = (o) =>
   o.status !== 'rechazado' && (o.payment_method === 'efectivo' || o.payment_status === 'validado')
 
-export const mapsUrl = (addr) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr || '')}`
+// Convierte enlaces de compartir (Google Drive, Dropbox) en URLs directas de imagen
+export function imageUrl(url) {
+  const u = String(url || '').trim()
+  if (!u) return ''
+  const drive =
+    u.match(/drive\.google\.com\/file\/d\/([\w-]{10,})/) ||
+    u.match(/drive\.google\.com\/(?:open|uc|thumbnail)\?(?:.*&)?id=([\w-]{10,})/) ||
+    u.match(/docs\.google\.com\/uc\?(?:.*&)?id=([\w-]{10,})/)
+  if (drive) return `https://lh3.googleusercontent.com/d/${drive[1]}=w1000`
+  if (/^https?:\/\/(www\.)?dropbox\.com\//.test(u)) {
+    const d = new URL(u)
+    d.searchParams.delete('dl')
+    d.searchParams.set('raw', '1')
+    return d.href
+  }
+  return u
+}
+
+export const mapsUrl =(addr) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr || '')}`
 
 export const waUrl = (phone) => `https://wa.me/${String(phone || '').replace(/\D/g, '').replace(/^(?!57)(\d{10})$/, '57$1')}`

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Empty, ErrorText, Field, Img, Modal, Spinner } from '../../components/ui'
-import { priceLabel } from '../../lib/format'
+import { imageUrl, priceLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 import ImportProducts from './ImportProducts'
 
@@ -130,7 +130,7 @@ function ProductForm({ business, initial, onClose, onSaved }) {
       business_id: business.id,
       name: f.name.trim(),
       description: f.description || null,
-      image_url: f.image_url || null,
+      image_url: imageUrl(f.image_url) || null,
       section: f.section.trim() || null,
       price: Number(f.price),
       perishable: f.perishable,
@@ -154,7 +154,7 @@ function ProductForm({ business, initial, onClose, onSaved }) {
         <Field label="Descripción">
           <textarea className="input" rows={2} value={f.description || ''} onChange={set('description')} />
         </Field>
-        <Field label="URL de la imagen" hint="Sube la imagen a cualquier hosting y pega aquí el enlace">
+        <Field label="URL de la imagen" hint="Pega el enlace de la imagen. Sirve Google Drive (compártela como “Cualquier persona con el enlace”), Dropbox o cualquier URL de imagen.">
           <input className="input" type="url" value={f.image_url || ''} onChange={set('image_url')} placeholder="https://…" />
         </Field>
         {f.image_url && <Img src={f.image_url} alt="" className="modal-img" />}

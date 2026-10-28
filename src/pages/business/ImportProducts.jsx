@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ErrorText, Modal } from '../../components/ui'
-import { priceLabel } from '../../lib/format'
+import { imageUrl, priceLabel } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 
 // Columnas del Excel (fila 1 = encabezados). Se aceptan con o sin tildes / mayúsculas.
@@ -88,7 +88,7 @@ function toProduct(raw, business) {
       name,
       price,
       description: String(r.descripcion ?? '').trim() || null,
-      image_url: img || null,
+      image_url: imageUrl(img) || null,
       section: String(r.seccion ?? '').trim() || null,
       perishable,
       sale_type: saleType,
@@ -172,7 +172,7 @@ export default function ImportProducts({ business, onClose, onDone }) {
           <li>Guárdala como <b>.xlsx</b>, <b>.xls</b> o <b>.csv</b>.</li>
           <li>Selecciónala abajo, revisa la vista previa y toca <b>Subir</b>.</li>
         </ol>
-        <p className="small muted">Las imágenes van como enlace (URL). Los productos se agregan a los que ya tienes; no se borra nada.</p>
+        <p className="small muted">Las imágenes van como enlace (URL). Puedes usar enlaces de Google Drive: comparte cada imagen como <b>“Cualquier persona con el enlace”</b> y pega el enlace tal cual. Los productos se agregan a los que ya tienes; no se borra nada.</p>
       </div>
 
       <button className="btn ghost sm" onClick={downloadTemplate}>
