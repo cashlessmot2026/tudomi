@@ -13,7 +13,7 @@ export default function Cart() {
   const { items, groups } = useCart()
   const { session } = useAuth()
   const [biz, setBiz] = useState({})
-  const { mp_enabled } = usePaymentConfig()
+  const cfg = usePaymentConfig()
   const ids = Object.keys(groups).sort().join(',')
 
   useEffect(() => {
@@ -41,13 +41,13 @@ export default function Cart() {
       <h2 className="title">Tu carrito</h2>
       {!session && <AuthForm title="Ingresa para pedir" subtitle="Usa tu cuenta de Google o regístrate" />}
       {Object.entries(groups).map(([bid, list]) => (
-        <CheckoutGroup key={bid} bid={bid} business={biz[bid]} list={list} canOrder={!!session} mpEnabled={mp_enabled} />
+        <CheckoutGroup key={bid} bid={bid} business={biz[bid]} list={list} canOrder={!!session} cfg={cfg} />
       ))}
     </div>
   )
 }
 
-function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
+function CheckoutGroup({ bid, business, list, canOrder, cfg }) {
   const { setQty, remove, clearBusiness } = useCart()
   const { user, profile, updateProfile } = useAuth()
   const nav = useNavigate()
@@ -56,6 +56,7 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
   const [note, setNote] = useState('')
   const [dest, setDest] = useState({ address: '', lat: null, lng: null })
   const [phone, setPhone] = useState('')
+  const [tip, setTip] = useState(0)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -66,13 +67,17 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
     }
   }, [profile])
 
-  const methods = acceptedMethods(business, mpEnabled)
+  const methods = acceptedMethods(business, cfg.mp_enabled)
   useEffect(() => {
     if (business && !methods.some((m) => m.id === method)) setMethod(methods[0]?.id || '')
   }, [business, method, methods])
 
   const subtotal = list.reduce((s, i) => s + i.unit_price * i.qty, 0)
-  const fee = Number(business?.delivery_fee || 0)
+  const baseFee = Number(business?.delivery_fee || 0)
+  // El servidor recalcula todo; esto solo muestra el mismo cálculo
+  const rain = cfg.rain_mode ? Math.round((baseFee * Number(cfg.rain_pct || 0)) / 100) : 0
+  const fee = baseFee + rain
+  const total = subtotal + fee + tip
 
   const order = async () => {
     setErr('')
@@ -89,6 +94,7 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
           business_id: bid,
           items: list.map((i) => ({ product_id: i.product_id, qty: i.qty, half_product_id: i.half_product_id || null, note: i.note || null })),
           payment_method: method,
+          tip,
           payment_proof_url: proof,
           note: note.trim() || null,
           address: dest.address.trim(),
@@ -155,6 +161,30 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
         <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
       </Field>
 
+      {rain > 0 && (
+        <p className="note-box small">🌧️ Está lloviendo: el domicilio tiene un recargo de {money(rain)} para el domiciliario.</p>
+      )}
+
+      <Field label="Propina voluntaria para el domiciliario">
+        <div className="tip-row">
+          {[0, 1000, 2000, 3000, 5000].map((v) => (
+            <button key={v} type="button" className={`pay ${tip === v ? 'active' : ''}`} onClick={() => setTip(v)}>
+              {v ? money(v) : 'Sin propina'}
+            </button>
+          ))}
+          <input
+            className="input"
+            type="number"
+            min={0}
+            step={500}
+            placeholder="Otro valor"
+            value={[0, 1000, 2000, 3000, 5000].includes(tip) ? '' : tip}
+            onChange={(e) => setTip(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+          />
+        </div>
+        <small className="muted">El 100% de la propina es para quien te lleva el pedido.</small>
+      </Field>
+
       {business && (
         <Field label="Método de pago">
           <div className="pay-methods">
@@ -168,11 +198,11 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
         </Field>
       )}
 
-      {method === 'datafono' && <p className="note-box small">💳 El domiciliario llevará el datáfono. Paga {money(subtotal + fee)} con tu tarjeta al recibir.</p>}
+      {method === 'datafono' && <p className="note-box small">💳 El domiciliario llevará el datáfono. Paga {money(total)} con tu tarjeta al recibir.</p>}
 
       {method === 'mercadopago' && (
         <p className="note-box small">
-          🟦 Al hacer el pedido te llevamos a Mercado Pago para pagar {money(subtotal + fee)} con tarjeta crédito, débito o PSE. El negocio
+          🟦 Al hacer el pedido te llevamos a Mercado Pago para pagar {money(total)} con tarjeta crédito, débito o PSE. El negocio
           recibe el pedido confirmado en cuanto se apruebe el pago.
         </p>
       )}
@@ -190,7 +220,7 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
           {method === 'qr' && (
             <>
               <p className="small">
-                <b>Escanea este QR con la app de tu banco y paga {money(subtotal + fee)}:</b>
+                <b>Escanea este QR con la app de tu banco y paga {money(total)}:</b>
               </p>
               <Img src={business.qr_image_url} alt="Código QR de pago" className="qr-img" fallback="📱" />
             </>
@@ -198,14 +228,14 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
           {method === 'link' && (
             <>
               <p className="small">
-                <b>Paga {money(subtotal + fee)} en el link del negocio y vuelve aquí con el comprobante:</b>
+                <b>Paga {money(total)} en el link del negocio y vuelve aquí con el comprobante:</b>
               </p>
               <a className="btn ghost block" href={business.payment_link_url} target="_blank" rel="noreferrer">
                 🔗 Abrir link de pago
               </a>
             </>
           )}
-          <Field label={`Comprobante del pago (${money(subtotal + fee)})`}>
+          <Field label={`Comprobante del pago (${money(total)})`}>
             <input className="input" type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files[0] || null)} />
           </Field>
           <p className="muted small">El negocio validará el pago y luego se genera tu ticket.</p>
@@ -218,12 +248,18 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
           <span>{money(subtotal)}</span>
         </div>
         <div>
-          <span>Domicilio</span>
+          <span>Domicilio{rain > 0 && ' 🌧️'}</span>
           <span>{money(fee)}</span>
         </div>
+        {tip > 0 && (
+          <div>
+            <span>Propina</span>
+            <span>{money(tip)}</span>
+          </div>
+        )}
         <div className="grand">
           <span>Total</span>
-          <span>{money(subtotal + fee)}</span>
+          <span>{money(total)}</span>
         </div>
       </div>
 
@@ -235,8 +271,8 @@ function CheckoutGroup({ bid, business, list, canOrder, mpEnabled }) {
           : !canOrder
             ? 'Ingresa para hacer el pedido'
             : method === 'mercadopago'
-              ? `Pagar con Mercado Pago · ${money(subtotal + fee)}`
-              : `Hacer pedido · ${money(subtotal + fee)}`}
+              ? `Pagar con Mercado Pago · ${money(total)}`
+              : `Hacer pedido · ${money(total)}`}
       </button>
     </div>
   )

@@ -45,9 +45,15 @@ export function OrderTicket({ order: o, businessName, code, showCode = true }) {
           <span>{money(o.subtotal)}</span>
         </div>
         <div>
-          <span>Domicilio</span>
+          <span>Domicilio{Number(o.rain_surcharge) > 0 && ' 🌧️'}</span>
           <span>{money(o.delivery_fee)}</span>
         </div>
+        {Number(o.tip) > 0 && (
+          <div>
+            <span>Propina para el domiciliario</span>
+            <span>{money(o.tip)}</span>
+          </div>
+        )}
         <div className="grand">
           <span>Total</span>
           <span>{money(o.total)}</span>

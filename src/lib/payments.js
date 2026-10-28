@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
-// Configuración pública de pagos (hoy: si el admin activó Mercado Pago)
+// Configuración pública: Mercado Pago activo y recargo por lluvia
 export function usePaymentConfig() {
-  const [cfg, setCfg] = useState({ mp_enabled: false })
+  const [cfg, setCfg] = useState({ mp_enabled: false, rain_mode: false, rain_pct: 50 })
   useEffect(() => {
     supabase.rpc('payment_config').then(({ data }) => data && setCfg(data))
   }, [])

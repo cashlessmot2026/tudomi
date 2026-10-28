@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Chat } from '../../components/Chat'
 import { CourierTracker } from '../../components/CourierTracker'
 import { ItemLine, OrderTicket } from '../../components/OrderTicket'
+import { SuccessCheck } from '../../components/SuccessCheck'
 import { Empty, ErrorText, Spinner, StatusBadge } from '../../components/ui'
 import { FLOW, STATUS, isOnline, money, ticketReady } from '../../lib/format'
 import { payWithMercadoPago } from '../../lib/payments'
@@ -17,6 +18,8 @@ export default function OrderDetail() {
   const [chat, setChat] = useState(false)
   const [paying, setPaying] = useState(false)
   const [payErr, setPayErr] = useState('')
+  const [paidCheck, setPaidCheck] = useState(false)
+  const lastPay = useRef(null)
   const codes = useOrderCodes(id)
 
   const load = useCallback(async () => {
@@ -27,6 +30,16 @@ export default function OrderDetail() {
   useEffect(() => {
     load()
   }, [load])
+
+  // Cuando el webhook confirma el pago de Mercado Pago, se muestra el check
+  useEffect(() => {
+    if (!o) return
+    const prev = lastPay.current
+    lastPay.current = o.payment_status
+    const justPaid = o.payment_status === 'validado' && prev !== 'validado'
+    const backFromMp = prev === null && new URLSearchParams(window.location.search).get('status') === 'approved'
+    if (o.payment_method === 'mercadopago' && justPaid && (prev === 'pendiente' || backFromMp)) setPaidCheck(true)
+  }, [o])
 
   useRealtime('orders', `id=eq.${id}`, (p) => {
     if (p.new?.status && p.old?.status !== p.new.status) notifyLocal('Tu pedido', `Estado: ${STATUS[p.new.status]?.label}`, `/pedidos/${id}`)
@@ -53,6 +66,9 @@ export default function OrderDetail() {
 
   return (
     <div className="page narrow">
+      {paidCheck && (
+        <SuccessCheck title="¡Pago aprobado!" subtitle={`Mercado Pago confirmó tu pago de ${money(o.total)}`} onDone={() => setPaidCheck(false)} />
+      )}
       <Link to="/pedidos" className="muted small">
         ← Mis pedidos
       </Link>

@@ -1,17 +1,29 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RequireAuth } from '../../components/AuthForm'
 import { ItemLine } from '../../components/OrderTicket'
+import { SuccessCheck } from '../../components/SuccessCheck'
 import { Empty, ErrorText, Field, InstallButton, PushButton, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { useAuth } from '../../lib/auth'
 import { fmtDate, isPrepaid, money, waUrl } from '../../lib/format'
 
 const chargeLabel = (m) => (m === 'efectivo' ? '💵 Cobrar en efectivo' : m === 'datafono' ? '💳 Cobrar con datáfono' : isPrepaid(m) ? '✅ Ya pagado' : 'Cobrar')
+// Lo que gana el domiciliario: domicilio (con recargo por lluvia) + propina
+const earnings = (o) => Number(o.delivery_fee || 0) + Number(o.tip || 0)
+const EarnLine = ({ o }) => (
+  <p className="small">
+    💰 Ganas <b className="earn">{money(earnings(o))}</b>
+    {Number(o.rain_surcharge) > 0 && <span className="muted"> · incluye 🌧️ {money(o.rain_surcharge)}</span>}
+    {Number(o.tip) > 0 && <span className="muted"> · propina {money(o.tip)}</span>}
+  </p>
+)
 import { directionsLink, hasCoords, mapsLink } from '../../lib/geo'
-import { beep, notifyLocal } from '../../lib/pwa'
+import { alertNewService, alertOrderReceived } from '../../lib/alerts'
+import { notifyLocal } from '../../lib/pwa'
 import { supabase, uploadFile } from '../../lib/supabase'
 import { useOrderCodes } from '../../lib/useOrderCodes'
 import { useRealtime } from '../../lib/useRealtime'
+import CourierStats from './CourierStats'
 
 export default function CourierApp() {
   return (
@@ -201,14 +213,16 @@ function CourierDashboard({ courier }) {
   const [avail, setAvail] = useState(null)
   const [mine, setMine] = useState(null)
   const [err, setErr] = useState('')
+  const [delivered, setDelivered] = useState(null)
+  const seen = useRef(null)
 
   const loadAvail = useCallback(async () => {
     if (own) return setAvail([])
     const { data } = await supabase.rpc('available_orders')
     setAvail((prev) => {
       if (prev && data && data.some((o) => !prev.find((p) => p.id === o.id))) {
-        beep()
-        notifyLocal('Nuevo domicilio disponible 🛵', 'Hay un pedido listo para tomar', '/domiciliario')
+        alertNewService()
+        notifyLocal('Nuevo domicilio disponible 🛵', 'Tienes un nuevo servicio listo para tomar', '/domiciliario')
       }
       return data || []
     })
@@ -221,6 +235,13 @@ function CourierDashboard({ courier }) {
       .eq('courier_id', courier.id)
       .order('created_at', { ascending: false })
       .limit(50)
+    // Pedidos que el negocio le asigna (domis propios): alerta la primera vez que aparecen
+    const ids = new Set((data || []).map((o) => o.id))
+    if (seen.current && (data || []).some((o) => !seen.current.has(o.id) && !['entregado', 'rechazado'].includes(o.status))) {
+      alertNewService()
+      notifyLocal('Nuevo servicio asignado 🛵', 'Tienes un nuevo servicio', '/domiciliario')
+    }
+    seen.current = ids
     setMine(data || [])
   }, [courier.id])
 
@@ -237,6 +258,11 @@ function CourierDashboard({ courier }) {
     setErr('')
     const { error } = await supabase.rpc('take_order', { p_order: id })
     if (error) setErr(error.message)
+    else {
+      // Marca el pedido como visto para que no suene como asignación nueva
+      seen.current?.add(id)
+      alertOrderReceived()
+    }
     await Promise.all([loadAvail(), loadMine()])
     if (!error) setTab('mios')
   }
@@ -246,6 +272,9 @@ function CourierDashboard({ courier }) {
 
   return (
     <div className="page">
+      {delivered && (
+        <SuccessCheck title="¡Pedido entregado!" subtitle={`#${delivered.number} · ganaste ${money(earnings(delivered))}`} onDone={() => setDelivered(null)} />
+      )}
       <div className="card pad biz-head">
         <div className="empty-icon sm">🛵</div>
         <div className="grow">
@@ -282,6 +311,7 @@ function CourierDashboard({ courier }) {
         items={[
           ...(own ? [] : [['disponibles', `📦 Disponibles (${avail?.length || 0})`]]),
           ['mios', `🛵 Mis entregas (${active.length})`],
+          ['stats', '📊 Ganancias'],
           ['cuenta', '👤 Cuenta'],
         ]}
       />
@@ -309,6 +339,7 @@ function CourierDashboard({ courier }) {
                 <p className="small">
                   {o.items_count} producto(s) · <b>{money(o.total)}</b> · {chargeLabel(o.payment_method)}
                 </p>
+                <EarnLine o={o} />
                 <button className="btn block pulse" onClick={() => take(o.id)}>
                   Tomar pedido
                 </button>
@@ -325,10 +356,12 @@ function CourierDashboard({ courier }) {
         ) : (
           <div className="orders-grid">
             {mine.map((o) => (
-              <DeliveryCard key={o.id} o={o} onChange={loadMine} />
+              <DeliveryCard key={o.id} o={o} onChange={loadMine} onDelivered={() => setDelivered(o)} />
             ))}
           </div>
         ))}
+
+      {tab === 'stats' && <CourierStats />}
 
       {tab === 'cuenta' && (
         <div className="card pad stack narrow">
@@ -400,7 +433,7 @@ const getGps = () =>
     )
   })
 
-function DeliveryCard({ o, onChange }) {
+function DeliveryCard({ o, onChange, onDelivered }) {
   const [code, setCode] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -411,8 +444,9 @@ function DeliveryCard({ o, onChange }) {
     setErr('')
     const { error } = await supabase.rpc(fn, args)
     setBusy(false)
-    if (error) setErr(error.message)
-    else onChange()
+    if (error) return setErr(error.message)
+    if (fn === 'complete_delivery') onDelivered()
+    onChange()
   }
 
   return (
@@ -467,6 +501,7 @@ function DeliveryCard({ o, onChange }) {
           <span>{money(o.total)}</span>
         </div>
       </div>
+      <EarnLine o={o} />
       {['aceptado', 'preparando'].includes(o.status) && codes?.pickup_code && (
         <div className="ticket-code pickup-code">
           <small>🔐 Tu código de retiro</small>

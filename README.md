@@ -54,6 +54,14 @@ Es un SPA estático (`npm run build` genera `dist/`). Sirve en Cloudflare Pages,
 - Secretos de las Edge Functions: `MP_ACCESS_TOKEN` (Access Token de producción, o `TEST-…` para pruebas) y `MP_WEBHOOK_SECRET` (clave secreta de la sección Webhooks).
 - Webhook en Mercado Pago (Tus integraciones → Webhooks, evento **Pagos**): `https://xvyldsknuacajphzeivc.supabase.co/functions/v1/mp-webhook`.
 
+### Propinas, comisiones, lluvia y analítica
+
+- **Propina voluntaria**: el cliente la elige en el carrito. Es 100% para el domiciliario.
+- **Comisión**: se guarda en cada pedido. Mercado Pago = 10% fijo de la venta neta (sin domicilio ni propina). En los demás métodos, el % que active el superadmin en **/admin → Ajustes**.
+- **Lluvia**: recargo (50% por defecto) sobre el domicilio, para el domiciliario. Manual o automático: `pg_cron` llama cada 15 min a la función `rain-check`, que consulta Open-Meteo en la zona de los negocios.
+- **Analítica**: **/admin → Analítica** (ventas por día, comisiones, liquidación por negocio y por domiciliario), **/negocio → Ventas** y **/domiciliario → Ganancias**.
+- **Alertas**: voz y sonido para el domiciliario ("tienes un nuevo servicio", "pedido recibido"), y para el negocio ("pedido recibido", "has recibido un pago de…" cuando el webhook confirma Mercado Pago). Check animado al entregar y al confirmarse el pago.
+
 ### Planes de suscripción para negocios
 
 Los negocios ven la pestaña **⭐ Planes** con los planes de Mercado Pago Suscripciones. El admin edita nombre, valor, detalles y link en **/admin → Ajustes**.

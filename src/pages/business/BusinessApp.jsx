@@ -9,6 +9,7 @@ import BusinessCouriers from './BusinessCouriers'
 import BusinessForm from './BusinessForm'
 import BusinessOrders from './BusinessOrders'
 import BusinessPlans from './BusinessPlans'
+import BusinessSales from './BusinessSales'
 import BusinessProducts from './BusinessProducts'
 
 export default function BusinessApp() {
@@ -79,6 +80,7 @@ function BusinessInner() {
         items={[
           ['pedidos', '📦 Pedidos'],
           ['productos', '🛍️ Productos'],
+          ['ventas', '📊 Ventas'],
           ['domis', '🛵 Domiciliarios'],
           ['planes', '⭐ Planes'],
           ['ajustes', '⚙️ Ajustes'],
@@ -89,6 +91,7 @@ function BusinessInner() {
       {tab === 'productos' && <BusinessProducts business={b} />}
       {tab === 'domis' && <BusinessCouriers business={b} />}
       {tab === 'planes' && <BusinessPlans />}
+      {tab === 'ventas' && <BusinessSales business={b} />}
       {tab === 'ajustes' && (
         <div className="narrow">
           <BusinessForm initial={b} onSaved={load} />

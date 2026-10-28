@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Chat } from '../../components/Chat'
 import { CourierTracker } from '../../components/CourierTracker'
 import { DeliveryLocation } from '../../components/DeliveryLocation'
+import { SuccessCheck } from '../../components/SuccessCheck'
 import { ItemLine } from '../../components/OrderTicket'
 import { Empty, ErrorText, Spinner, StatusBadge, Tabs } from '../../components/ui'
 import { fmtDate, isOnline, money, needsProof, payLabel, waUrl } from '../../lib/format'
 import { mapsLink } from '../../lib/geo'
-import { beep, notifyLocal } from '../../lib/pwa'
+import { alertOrderReceived, alertPaymentReceived } from '../../lib/alerts'
+import { notifyLocal } from '../../lib/pwa'
 import { supabase } from '../../lib/supabase'
 import { useOrderCodes } from '../../lib/useOrderCodes'
 import { useRealtime } from '../../lib/useRealtime'
@@ -17,6 +19,9 @@ export default function BusinessOrders({ business }) {
   const [list, setList] = useState(null)
   const [filter, setFilter] = useState('activos')
   const [own, setOwn] = useState([])
+  const [paid, setPaid] = useState(null)
+  const listRef = useRef(null)
+  listRef.current = list
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -42,8 +47,15 @@ export default function BusinessOrders({ business }) {
 
   useRealtime('orders', `business_id=eq.${business.id}`, (p) => {
     if (p.eventType === 'INSERT') {
-      beep()
+      alertOrderReceived()
       notifyLocal('¡Nuevo pedido! 🛎️', `Pedido #${p.new.number} por ${money(p.new.total)}`, '/negocio')
+    }
+    // Mercado Pago confirmó el pago (webhook): voz con el valor y check
+    const before = listRef.current?.find((x) => x.id === p.new?.id)
+    if (p.eventType === 'UPDATE' && p.new.payment_method === 'mercadopago' && p.new.payment_status === 'validado' && before && before.payment_status !== 'validado') {
+      alertPaymentReceived(p.new.total)
+      notifyLocal('💰 Pago recibido', `Pedido #${p.new.number}: ${money(p.new.total)} con Mercado Pago`, '/negocio')
+      setPaid(p.new)
     }
     load()
   })
@@ -53,6 +65,9 @@ export default function BusinessOrders({ business }) {
 
   return (
     <div>
+      {paid && (
+        <SuccessCheck title={`¡Pago recibido! ${money(paid.total)}`} subtitle={`Pedido #${paid.number} pagado con Mercado Pago`} onDone={() => setPaid(null)} />
+      )}
       <Tabs
         value={filter}
         onChange={setFilter}
