@@ -12,6 +12,12 @@ export const CATEGORIES = [
   { id: 'restaurante', label: 'Restaurantes', icon: '🍔' },
   { id: 'minimarket', label: 'Minimarkets', icon: '🥕' },
   { id: 'tecnologia', label: 'Tecnología', icon: '📱' },
+  { id: 'floristeria', label: 'Floristerías', icon: '💐' },
+  { id: 'ferreteria', label: 'Ferreterías', icon: '🔧' },
+  { id: 'tienda', label: 'Tiendas', icon: '🛍️' },
+  { id: 'taller', label: 'Talleres de vehículos', icon: '🚗' },
+  { id: 'alquiler', label: 'Alquiler (elementos varios)', icon: '🎪' },
+  { id: 'otro', label: 'Otros', icon: '🏪' },
 ]
 
 // Sugerencias de ciudad (el campo permite escribir cualquier otra)
