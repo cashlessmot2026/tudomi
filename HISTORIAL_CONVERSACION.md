@@ -66,9 +66,17 @@ Commits previos (27 oct): imágenes de Drive/Dropbox, detalle de pedidos en el a
 - Check de éxito: se probó Lottie con `dotlottie-wc` (commit `4166daa`) y luego se reemplazó por un check **propio en SVG + CSS** (círculo que se dibuja, check trazado, rebote y destellos), sin fondo blanco ni dependencias externas. Archivos: `src/components/SuccessCheck.jsx` y estilos `.anim-check` / `.ac-*` en `src/styles.css`. Commit `44d091b`, publicado en `main`.
 - Pendiente: ver el check nuevo en pantalla y ajustarlo si el usuario quiere otro estilo (no se había visto la imagen de referencia que mencionó).
 
+## 5c. Ciudades, enlace de tienda e interruptor de externos (28 oct 2026)
+
+- **Ciudad (migración 010):** columna `businesses.city`. El negocio la llena en su formulario (obligatoria, con sugerencias; se autocompleta con el botón 📍). El cliente elige su ciudad en el inicio (se guarda en el celular) o usa "Detectar mi ubicación"; solo ve negocios de esa ciudad, abiertos primero y luego por cercanía (Haversine), con la distancia en cada tarjeta. Los negocios sin ciudad se muestran en todas hasta que la completen. Commit `73ac137`.
+- **Admin:** filtro por ciudad en la pestaña Negocios (con conteos y "Sin ciudad").
+- **Enlace para redes:** en el panel del negocio, tarjeta "Tu enlace para redes sociales" (`/tienda/<id>`) con copiar, compartir y WhatsApp. La tienda muestra un aviso a visitantes sin sesión; el registro se exige al confirmar el pedido en el carrito.
+- **Interruptor de domiciliarios externos (migración 011):** ajuste `external_couriers` (por defecto encendido), RPC `admin_set_external_couriers`, expuesto en `payment_config`. Apagado: `available_orders` y `take_order` quedan cerrados, el negocio no puede enviar a externos, no se registran externos nuevos (los propios sí) y los pedidos publicados sin tomar vuelven al negocio. UI: tarjeta en Ajustes del admin, aviso en el panel del negocio y "Registro cerrado" en la app del domiciliario. Commit `1bb53b3`.
+- **Pendiente del usuario:** aplicar las migraciones 010 y 011 en el SQL Editor de Supabase (el código ya está en `main`). Luego probar el enlace en incógnito, el filtro del admin y el interruptor.
+
 ## 5. Estado de la base de datos
 
-Migraciones aplicadas en Supabase: 002 a 009 (la 009 el 28 oct 2026).
+Migraciones aplicadas en Supabase: 002 a 009 (la 009 el 28 oct 2026). **010 y 011 están en el repo pero hay que aplicarlas a mano en el SQL Editor.**
 
 Edge Functions desplegadas: `mp-create-preference`, `mp-webhook` (sin verificación JWT), `rain-check`.
 
